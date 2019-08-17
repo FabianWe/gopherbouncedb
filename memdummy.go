@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package goherbouncedb
+package gopherbouncedb
 
 import (
 	"sync"
@@ -35,6 +35,8 @@ func NewMemdummyUserStorage() *MemdummyUserStorage {
 	return &MemdummyUserStorage{
 		mutex: new(sync.RWMutex),
 		idMapping: make(map[UserID]*UserModel),
+		nameMapping: make(map[string]*UserModel),
+		mailMapping: make(map[string]*UserModel),
 		nextID: 0,
 	}
 }

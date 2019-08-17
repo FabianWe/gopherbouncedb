@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package goherbouncedb
+package gopherbouncedb
 
 // NoSuchUser is an error returned when the lookup of a user failed because
 // no entry for that user exists.
