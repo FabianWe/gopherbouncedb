@@ -34,6 +34,8 @@ type UserID int64
 // DateJoined and LasdLogin should also be self-explaining.
 // Note that LastLogin can be zero, meaning if the user never logged in
 // LastLogin.IsZero() == true.
+//
+// In general UserID, Username and EMail should be unique.
 type UserModel struct {
   ID UserID
 	FirstName   string

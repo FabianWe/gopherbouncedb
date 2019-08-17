@@ -46,9 +46,28 @@ func (e UserExists) Error() string {
   return e.Err
 }
 
+// AmbiguousCredentials is an error returned when the update of an user would lead to an inconsistent database
+// state, such as email already in use.
+type AmbiguousCredentials struct {
+	Err string
+}
+
+// NewAmbiguousCredentials returns a new AmbiguousCredentials given the cause.
+func NewAmbiguousCredentials(message string) AmbiguousCredentials {
+	return AmbiguousCredentials{}
+}
+
+// Error returns the error string.
+func (e AmbiguousCredentials) Error() string {
+	return e.Err
+}
+
 // UserStorage provides methods to store, retrieve, update and delete users from
 // a database.
+// MemdummyUserStorage provides a reference implementation but should never be used in any real code.
 type UserStorage interface {
+  // Init should be called once to make sure all tables in the database exist etc.
+  Init() error
   // GetUser returns the user with the given id. If no such user exists it
   // should return nil and an error of type NoSuchUser.
   GetUser(id UserID) (*UserModel, error)
@@ -60,17 +79,24 @@ type UserStorage interface {
   GetUserByEmail(email string) (*UserModel, error)
   // InsertUser inserts a new user to the store. It should set the id of the
   // provided user model to the new id and return that id as well.
-  // If
+  // If an user with the given credentials already exists (name or email, depending on which are enforced to be
+  // unique) it should return InvalidUserID and an error of type UserExists.
   InsertUser(user *UserModel) (UserID, error)
   // UpdateUser update the user with the given information, that is it uses
   // the user id to find the user and stores all new information.
   // fields is an optional argument which contains the fields to update.
   // The fields must be a subset of the UserModel attributes.
-  // If given only these fields will be updated.
+  // If given only these fields will be updated - user id is not allowed to be changed.
   // If fields is empty (nil or empty slice) all fields will be updated.
   // If no such user exists it should return an error of type NoSuchUser.
-  UpdateUser(user *UserModel, fields []string) error
+  // If the change of values would violate a consistency constraint (email or username already in use) it should not
+  // update any fields but instead return an error of type AmbiguousCredentials.
+  //
+  // Short summary: If nil is returned everything is okay. If the credentials for the old user don't exist NoSuchUser
+  // returned and if any of the new values violate a database constraint (such as unique) AmbiguousCredentials is
+  // returned.
+  UpdateUser(id UserID, newCredentials *UserModel, fields []string) error
   // DeleteUser deletes the given user.
   // If no such user exists it should return an error of type NoSuchUser.
-  DeleteUser(user *UserModel) error
+  DeleteUser(id UserID) error
 }
