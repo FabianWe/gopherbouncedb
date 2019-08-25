@@ -14,6 +14,8 @@
 
 package gopherbouncedb
 
+import "fmt"
+
 // NoSuchUser is an error returned when the lookup of a user failed because
 // no entry for that user exists.
 type NoSuchUser struct {
@@ -23,6 +25,18 @@ type NoSuchUser struct {
 // NewNoSuchUser returns a new NoSuchUser given the cause.
 func NewNoSuchUser(message string) NoSuchUser {
   return NoSuchUser{Err: message}
+}
+
+func NewNoSuchUserID(id UserID) NoSuchUser {
+  return NewNoSuchUser(fmt.Sprintf("User with id %d does not exist",id))
+}
+
+func NewNoSuchUserUsername(username string) NoSuchUser {
+	return NewNoSuchUser(fmt.Sprintf("User with username \"%s\" does not exist", username))
+}
+
+func NewNoSuchUserMail(email string) NoSuchUser {
+	return NewNoSuchUser(fmt.Sprintf("User with email \"%s\" does not exist", email))
 }
 
 // Error returns the error string.

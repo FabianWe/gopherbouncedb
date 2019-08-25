@@ -31,13 +31,14 @@ type UserID int64
 // the user to inactive instead of deleting the user object.
 // IsSuperUser and isStaff should be true if the user is an "admin" user / part
 // of the staff. This was inspired by the Django user model.
-// DateJoined and LasdLogin should also be self-explaining.
+// DateJoined and LastLogin should also be self-explaining.
 // Note that LastLogin can be zero, meaning if the user never logged in
 // LastLogin.IsZero() == true.
 //
 // In general UserID, Username and EMail should be unique.
+// TODO update doc: all times not nil
 type UserModel struct {
-  ID UserID
+  	ID UserID
 	FirstName   string
 	LastName    string
 	Username    string
