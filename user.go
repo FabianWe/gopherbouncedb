@@ -16,6 +16,8 @@ package gopherbouncedb
 
 import (
   "time"
+	"strings"
+	"fmt"
 )
 
 // UserID is the id of a user stored in a database.
@@ -51,8 +53,40 @@ type UserModel struct {
 	LastLogin   time.Time
 }
 
+func (u *UserModel) GetFieldByName(name string) (val interface{}, err error) {
+	switch strings.ToLower(name) {
+	case "id":
+		val = u.ID
+	case "firstname":
+		val = u.FirstName
+	case "lastname":
+		val = u.LastName
+	case "username":
+		val = u.Username
+	case "email":
+		val = u.EMail
+	case "password":
+		val = u.Password
+	case "isactive":
+		val = u.IsActive
+	case "issuperuser":
+		val = u.IsSuperUser
+	case "isstaff":
+		val = u.IsStaff
+	case "datejoined":
+		val = u.DateJoined
+	case "lastlogin":
+		val = u.LastLogin
+	default:
+		err = fmt.Errorf("Invalid field name \"%s\": Must be a valid field name of the user model", name)
+	}
+	return
+}
+
 const (
   // InvalidUserID is used when a user id is required but no user with the
   // given credentials was found.
   InvalidUserID = UserID(-1)
 )
+
+// TODO validate user: email, password, ... must be given!

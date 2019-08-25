@@ -68,12 +68,28 @@ type AmbiguousCredentials struct {
 
 // NewAmbiguousCredentials returns a new AmbiguousCredentials given the cause.
 func NewAmbiguousCredentials(message string) AmbiguousCredentials {
-	return AmbiguousCredentials{}
+	return AmbiguousCredentials{Err: message}
 }
 
 // Error returns the error string.
 func (e AmbiguousCredentials) Error() string {
 	return e.Err
+}
+
+// NotSupported is the error returned when inserting / updating a user and getting
+// LastInsertID or RowsAffected is not supported by the driver.
+type NotSupported struct {
+	initial error
+}
+
+// NewNoInsertID returns a new NoInsertID.
+func NewNotSupported(initial error) NotSupported {
+	return NotSupported{initial: initial}
+}
+
+// Error returns the error string.
+func (e NotSupported) Error() string {
+	return fmt.Sprintf("LastInsertID not supported by driver: %v", e.initial)
 }
 
 // UserStorage provides methods to store, retrieve, update and delete users from
@@ -95,6 +111,11 @@ type UserStorage interface {
   // provided user model to the new id and return that id as well.
   // If an user with the given credentials already exists (name or email, depending on which are enforced to be
   // unique) it should return InvalidUserID and an error of type UserExists.
+  // The fields DateJoined is set to the current date (in UTC) and LastLogin is set to
+  // the time zero value.
+  // If the underlying driver does not support to get the last insert id
+  // via LastInsertId InvalidUserID and an error of type NotSupported should be returned.
+  // This indicates that the insertion took place but the id could not be obtained.
   InsertUser(user *UserModel) (UserID, error)
   // UpdateUser update the user with the given information, that is it uses
   // the user id to find the user and stores all new information.
@@ -102,15 +123,16 @@ type UserStorage interface {
   // The fields must be a subset of the UserModel attributes.
   // If given only these fields will be updated - user id is not allowed to be changed.
   // If fields is empty (nil or empty slice) all fields will be updated.
-  // If no such user exists it should return an error of type NoSuchUser.
   // If the change of values would violate a consistency constraint (email or username already in use) it should not
   // update any fields but instead return an error of type AmbiguousCredentials.
   //
-  // Short summary: If nil is returned everything is okay. If the credentials for the old user don't exist NoSuchUser
-  // returned and if any of the new values violate a database constraint (such as unique) AmbiguousCredentials is
+  // Updating a non-existing user should not lead to any error (returns nil).
+  //
+  // Short summary: If nil is returned everything is okay, but the user may not exist.
+  // If any of the new values violates a database constraint (such as unique) AmbiguousCredentials is
   // returned.
   UpdateUser(id UserID, newCredentials *UserModel, fields []string) error
   // DeleteUser deletes the given user.
-  // If no such user exists it should return an error of type NoSuchUser.
+  // If no such user exists this will not be considered an error.
   DeleteUser(id UserID) error
 }
