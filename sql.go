@@ -125,8 +125,8 @@ func (e RollbackErr) Error() string {
 }
 
 type SQLBridge interface {
-	ScanType() interface{}
-	ConvertScanType(val interface{}) (time.Time, error)
+	TimeScanType() interface{}
+	ConvertTimeScanType(val interface{}) (time.Time, error)
 	ConvertExistsErr(err error) error
 	ConvertAmbiguousErr(err error) error
 	ConvertTime(t time.Time) interface{}
@@ -178,7 +178,7 @@ func (s *SQLUserStorage) scanUser(row *sql.Row, noUser NoSuchUser) (*UserModel, 
 	var username, password, email, firstName, lastName string
 	var isSuperuser, isStaff, isActive bool
 	var dateJoined, lastLogin interface{}
-	dateJoined, lastLogin = s.Bridge.ScanType(), s.Bridge.ScanType()
+	dateJoined, lastLogin = s.Bridge.TimeScanType(), s.Bridge.TimeScanType()
 	scanErr := row.Scan(&userId, &username, &password, &email,
 		&firstName, &lastName, &isSuperuser, &isStaff,
 		&isActive, &dateJoined, &lastLogin)
@@ -198,12 +198,12 @@ func (s *SQLUserStorage) scanUser(row *sql.Row, noUser NoSuchUser) (*UserModel, 
 	user.IsActive = isActive
 	user.IsSuperUser = isSuperuser
 	user.IsStaff = isStaff
-	if dj, djErr := s.Bridge.ConvertScanType(dateJoined); djErr != nil {
+	if dj, djErr := s.Bridge.ConvertTimeScanType(dateJoined); djErr != nil {
 		return nil, djErr
 	} else {
 		user.DateJoined = dj
 	}
-	if ll, llErr := s.Bridge.ConvertScanType(lastLogin); llErr != nil {
+	if ll, llErr := s.Bridge.ConvertTimeScanType(lastLogin); llErr != nil {
 		return nil, llErr
 	} else {
 		user.LastLogin = ll
