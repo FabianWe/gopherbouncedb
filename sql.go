@@ -181,7 +181,7 @@ func (s *SQLUserStorage) scanUser(row *sql.Row, noUser NoSuchUser) (*UserModel, 
 	dateJoined, lastLogin = s.Bridge.TimeScanType(), s.Bridge.TimeScanType()
 	scanErr := row.Scan(&userId, &username, &password, &email,
 		&firstName, &lastName, &isSuperuser, &isStaff,
-		&isActive, &dateJoined, &lastLogin)
+		&isActive, dateJoined, lastLogin)
 	switch {
 	case scanErr == sql.ErrNoRows:
 		return nil,noUser
