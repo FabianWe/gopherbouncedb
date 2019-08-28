@@ -57,7 +57,6 @@ func NewSQLTemplateReplacer() *SQLTemplateReplacer {
 		entries: make(map[string]string),
 		replacer: nil,
 	}
-	res.entries["$TABLE_NAME$"] = "auth_user"
 	res.computeReplacer()
 	return res
 }
@@ -65,7 +64,7 @@ func NewSQLTemplateReplacer() *SQLTemplateReplacer {
 func DefaultSQLReplacer() *SQLTemplateReplacer {
 	res := NewSQLTemplateReplacer()
 	values := map[string]string{
-		"$TABLE_NAME": "auth_users",
+		"$TABLE_NAME$": "auth_user",
 		"$EMAIL_UNIQUE$": "UNIQUE",
 	}
 	res.UpdateDict(values)
@@ -184,7 +183,7 @@ func (s *SQLUserStorage) scanUser(row *sql.Row, noUser NoSuchUser) (*UserModel, 
 		&isActive, dateJoined, lastLogin)
 	switch {
 	case scanErr == sql.ErrNoRows:
-		return nil,noUser
+		return nil, noUser
 	case scanErr != nil:
 		return nil, scanErr
 	}
