@@ -19,11 +19,8 @@ import (
 	"regexp"
 	"unicode/utf8"
 	"errors"
+	"unicode"
 )
-
-// PasswordValidator is a validator that checks if a given clear text password
-// has a certain property (for example a certain length).
-type PasswordValidator func(password string) error
 
 // UserVerifier is a function that takes a user and returns an error if a given
 // criteria isn't matched.
@@ -32,7 +29,7 @@ type PasswordValidator func(password string) error
 // Note that this performs validation on a user model, thus it tests the password hash
 // and cannot be used to verify if a password is valid according to some other
 // criteria (for example minimum length).
-// A clear text password should be checked before, see PasswordValidator.
+// A clear text password should be checked before, see PasswordVerifier.
 // They're also used to verify certain length properties for the database.
 type UserVerifier func(u *UserModel) error
 
@@ -46,6 +43,9 @@ var (
 	ErrEmailTooLong = errors.New("email is longer than 254 characters")
 	ErrFirstNameTooLong = errors.New("first name is longer than 50 characters")
 	ErrLastNameTooLong = errors.New("last name is longer than 150 characters")
+	ErrInvalidUsernameSyntax = errors.New("invalid username syntax")
+	ErrInvalidFirstNameSyntax = errors.New("invalid first name")
+	ErrInvalidLastNameSyntax = errors.New("invalid last name")
 )
 
 func VerifiyNameExists(u *UserModel) error {
@@ -72,14 +72,14 @@ func VerifyPasswordExists(u *UserModel) error {
 var (
 	// EmailRegexp is used to verify that an email is valid.
 	// It is the python version taken from https://emailregex.com/
-	EmailRegexp = regexp.MustCompile(`(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)`)
+	EmailRx = regexp.MustCompile(`(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)`)
 )
 
 func IsEmailValid(email string) error {
-	if !EmailRegexp.MatchString(email) {
-		return ErrInvalidEmailSyntax
+	if EmailRx.MatchString(email) {
+		return nil
 	}
-	return nil
+	return ErrInvalidEmailSyntax
 }
 
 func VerifyEmailSyntax(u *UserModel) error {
@@ -138,4 +138,102 @@ func VerifyStandardUserLengths(u *UserModel) error {
 		return err
 	}
 	return nil
+}
+
+var (
+	// UsernameSyntaxRx tries to implement the following syntax for user names:
+	// First a alphabetic symbol (a-zA-Z), followed by a sequence of chars, dots
+	// points and numbers.
+	// But it is not allowed to end with an underscore or dot.
+	// Also after a dot or underscore no dot or underscore is allowed.
+	// It does however not check the length limits.
+	UsernameSyntaxRx = regexp.MustCompile(`^[a-zA-Z]([a-zA-Z0-9]|[_.][a-zA-Z0-9])*?$`)
+)
+
+func verifyName(name string) bool {
+	for _, char := range name {
+		if !unicode.IsLetter(char) {
+			return false
+		}
+	}
+	return true
+}
+
+func CheckUsernameSyntax(username string) error {
+	if UsernameSyntaxRx.MatchString(username) {
+		return nil
+	}
+	return ErrInvalidUsernameSyntax
+}
+
+func CheckFirstNameSyntax(name string) error {
+	if verifyName(name) {
+		return nil
+	}
+	return ErrInvalidFirstNameSyntax
+}
+
+func CheckLastNameSyntax(name string) error {
+	if verifyName(name) {
+		return nil
+	}
+	return ErrInvalidLastNameSyntax
+}
+
+// PasswordVerifier is any function that checks if a given password meets certain
+// criteria, for example min length or contains at least one character from a certain
+// range.
+type PasswordVerifier func(pw string) bool
+
+func PWLenVerifier(minLen, maxLen int) PasswordVerifier {
+	return func(pw string) bool {
+		pwLen := utf8.RuneCountInString(pw)
+		if minLen >= 0 && pwLen < minLen {
+			return false
+		}
+		if maxLen >= 0 && pwLen > maxLen {
+			return false
+		}
+		return true
+	}
+}
+
+type RuneClass func(r rune) bool
+
+func ClassCounter(classes []RuneClass, s string) int {
+	classCounter := make(map[int]struct{}, len(classes))
+	for _, char := range s {
+		for i, class := range classes {
+			if class(char) {
+				classCounter[i] = struct{}{}
+			}
+		}
+	}
+	return len(classCounter)
+}
+
+func LowerLetterClass(r rune) bool {
+	return r >= 'a' && r <= 'z'
+}
+
+func UpperLetterClass(r rune) bool {
+	return r >= 'A' && r <= 'Z'
+}
+
+func DigitClass(r rune) bool {
+	return r >= '0' && r <= '9'
+}
+
+func SpecialCharacterClass(r rune) bool {
+	return strings.ContainsAny(string(r), "~!@#$%^&*()+=_-{}[]\\|:;?/<>,")
+}
+
+func LetterClass(r rune) bool {
+	return LowerLetterClass(r) || UpperLetterClass(r)
+}
+
+func PWContainsVerifier(classes []RuneClass) PasswordVerifier {
+	return func(pw string) bool {
+		return false
+	}
 }
