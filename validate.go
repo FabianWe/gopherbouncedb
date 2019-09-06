@@ -33,6 +33,7 @@ import (
 // They're also used to verify certain length properties for the database.
 type UserVerifier func(u *UserModel) error
 
+// These variables define errors returned by some of the validators.
 var (
 	ErrEmptyUsername = errors.New("no username given")
 	ErrEmptyEmail = errors.New("no EMail given")
@@ -48,6 +49,8 @@ var (
 	ErrInvalidLastNameSyntax = errors.New("invalid last name")
 )
 
+// VerifiyNameExists tests if the user has a username.
+// It is a UserVerifier.
 func VerifiyNameExists(u *UserModel) error {
 	if strings.TrimSpace(u.Username) == "" {
 		return ErrEmptyUsername
@@ -55,6 +58,8 @@ func VerifiyNameExists(u *UserModel) error {
 	return nil
 }
 
+// VerifyEmailExists tests if the user has an email.
+// It is a UserVerifier.
 func VerifyEmailExists(u *UserModel) error {
 	if strings.TrimSpace(u.EMail) == "" {
 		return ErrEmptyEmail
@@ -62,6 +67,8 @@ func VerifyEmailExists(u *UserModel) error {
 	return nil
 }
 
+// VerifyPasswordExists tests if the password is not empty.
+// It is a UserVerifier.
 func VerifyPasswordExists(u *UserModel) error {
 	if strings.TrimSpace(u.Password) == "" {
 		return ErrEmptyPassword
@@ -75,66 +82,82 @@ var (
 	EmailRx = regexp.MustCompile(`(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)`)
 )
 
-func IsEmailValid(email string) error {
+// IsEmailSyntaxValid tests if the email is syntactically correct.
+// It does however not check the length of the email.
+func IsEmailSyntaxValid(email string) error {
 	if EmailRx.MatchString(email) {
 		return nil
 	}
 	return ErrInvalidEmailSyntax
 }
 
+// VerifyEmailSyntax tests if the user email is syntactically.
+// It does however not check the length of the email.
 func VerifyEmailSyntax(u *UserModel) error {
-	return IsEmailValid(u.EMail)
+	return IsEmailSyntaxValid(u.EMail)
 }
 
-func CheckUsernameLength(username string) error {
-	if utf8.RuneCountInString(username)> 150 {
+// CheckUsernameMaxLen tests if the username is not longer than the allowed length
+// (150 chars).
+func CheckUsernameMaxLen(username string) error {
+	if utf8.RuneCountInString(username) > 150 {
 		return ErrUsernameTooLong
 	}
 	return nil
 }
 
-func CheckPasswordHashLength(password string) error {
+// CheckPasswordHashMaxLen tests if the password hash length is not longer than the
+// allowed length (270 chars).
+func CheckPasswordHashMaxLen(password string) error {
 	if utf8.RuneCountInString(password) > 270 {
 		return ErrPasswordTooLong
 	}
 	return nil
 }
 
-func CheckEmailLength(email string) error {
+// CheckEmailMaxLen tests if the email length is not longer than the allowed length
+// (254 chars).
+func CheckEmailMaxLen(email string) error {
 	if utf8.RuneCountInString(email) > 254 {
 		return ErrEmailTooLong
 	}
 	return nil
 }
 
-func CheckFirstNameLength(name string) error {
+// CheckFirstNameMaxLen tests if the name is not longer than the allowed length
+// (50 chars).
+func CheckFirstNameMaxLen(name string) error {
 	if utf8.RuneCountInString(name) > 50 {
 		return ErrFirstNameTooLong
 	}
 	return nil
 }
 
-func CheckLastNameLength(name string) error {
+// CheckLastNameMaxLen tests if the name is not longer than the allowed length
+// (150 chars).
+func CheckLastNameMaxLen(name string) error {
 	if utf8.RuneCountInString(name) > 150 {
 		return ErrLastNameTooLong
 	}
 	return nil
 }
 
-func VerifyStandardUserLengths(u *UserModel) error {
-	if err := CheckUsernameLength(u.Username); err != nil {
+// VerifyStandardUserMaxLens tests the username, password hash, email, first name
+// and last name for their max lengths and returns nil only iff all tests passed.
+func VerifyStandardUserMaxLens(u *UserModel) error {
+	if err := CheckUsernameMaxLen(u.Username); err != nil {
 		return err
 	}
-	if err := CheckPasswordHashLength(u.Password); err != nil {
+	if err := CheckPasswordHashMaxLen(u.Password); err != nil {
 		return err
 	}
-	if err := CheckEmailLength(u.EMail); err != nil {
+	if err := CheckEmailMaxLen(u.EMail); err != nil {
 		return err
 	}
-	if err := CheckFirstNameLength(u.FirstName); err != nil {
+	if err := CheckFirstNameMaxLen(u.FirstName); err != nil {
 		return err
 	}
-	if err := CheckLastNameLength(u.LastName); err != nil {
+	if err := CheckLastNameMaxLen(u.LastName); err != nil {
 		return err
 	}
 	return nil
@@ -147,7 +170,7 @@ var (
 	// But it is not allowed to end with an underscore or dot.
 	// Also after a dot or underscore no dot or underscore is allowed.
 	// It does however not check the length limits.
-	UsernameSyntaxRx = regexp.MustCompile(`^[a-zA-Z]([a-zA-Z0-9]|[_.][a-zA-Z0-9])*?$`)
+	UsernameRx = regexp.MustCompile(`^[a-zA-Z]([a-zA-Z0-9]|[_.][a-zA-Z0-9])*?$`)
 )
 
 func verifyName(name string) bool {
@@ -159,13 +182,20 @@ func verifyName(name string) bool {
 	return true
 }
 
+// CheckUsernameSyntax tests if the username matches the following syntax:
+// First a alphabetic symbol (a-zA-Z), followed by a sequence of chars, dots
+// points and numbers.
+// But it is not allowed to end with an underscore or dot.
+// Also after a dot or underscore no dot or underscore is allowed.
+// It does however not check the length limits.
 func CheckUsernameSyntax(username string) error {
-	if UsernameSyntaxRx.MatchString(username) {
+	if UsernameRx.MatchString(username) {
 		return nil
 	}
 	return ErrInvalidUsernameSyntax
 }
 
+// CheckFirstNameSyntax tests if all chars of the name are a unicode letter (class L).
 func CheckFirstNameSyntax(name string) error {
 	if verifyName(name) {
 		return nil
@@ -173,6 +203,7 @@ func CheckFirstNameSyntax(name string) error {
 	return ErrInvalidFirstNameSyntax
 }
 
+// CheckLastNameSyntax tests if all chars of the name are a unicode letter (class L).
 func CheckLastNameSyntax(name string) error {
 	if verifyName(name) {
 		return nil
@@ -185,6 +216,11 @@ func CheckLastNameSyntax(name string) error {
 // range.
 type PasswordVerifier func(pw string) bool
 
+// PWLenVerifier is a generator for a PasswordVerifier that checks the length of
+// the password.
+//
+// The password must have at least length minLen and at most length maxLen.
+// To disable any of the checks pass -1.
 func PWLenVerifier(minLen, maxLen int) PasswordVerifier {
 	return func(pw string) bool {
 		pwLen := utf8.RuneCountInString(pw)
@@ -198,42 +234,57 @@ func PWLenVerifier(minLen, maxLen int) PasswordVerifier {
 	}
 }
 
+// RuneClass is any set of runes identified by a function.
 type RuneClass func(r rune) bool
 
+// ClassCounter counts how many classes are are contained in the input string.
+// That is if a class matches a single rune in s it is considered contained in
+// the input.
 func ClassCounter(classes []RuneClass, s string) int {
-	classCounter := make(map[int]struct{}, len(classes))
-	for _, char := range s {
-		for i, class := range classes {
+
+	numFulfilled := 0
+	for _, class := range classes {
+		fulfilled := false
+		for _, char := range s {
 			if class(char) {
-				classCounter[i] = struct{}{}
+				fulfilled = true
+				break
 			}
 		}
+		if fulfilled {
+			numFulfilled++
+		}
 	}
-	return len(classCounter)
+	return numFulfilled
 }
 
+// PWContainsAll is a generator that returns a PasswordVerifier.
+//
+// The returned verifier tests if the password contains at least one char of each class.
+func PWContainsAll(classes []RuneClass) PasswordVerifier {
+	n := len(classes)
+	return func(pw string) bool {
+		return ClassCounter(classes, pw) == n
+	}
+}
+
+// LowerLetterClass tests if 'a' ≤ r ≤ 'z'.
 func LowerLetterClass(r rune) bool {
 	return r >= 'a' && r <= 'z'
 }
 
+// UpperLetterClass tests if 'A' ≤ r ≤ 'Z'.
 func UpperLetterClass(r rune) bool {
 	return r >= 'A' && r <= 'Z'
 }
 
+// DigitClass tests if the rune is a number (0 - 9).
 func DigitClass(r rune) bool {
 	return r >= '0' && r <= '9'
 }
 
+// SpecialCharacterClass tests if the rune is a special char from
+// ~!@#$%^&*()+=_-{}[]\\|:;?/<>,
 func SpecialCharacterClass(r rune) bool {
 	return strings.ContainsAny(string(r), "~!@#$%^&*()+=_-{}[]\\|:;?/<>,")
-}
-
-func LetterClass(r rune) bool {
-	return LowerLetterClass(r) || UpperLetterClass(r)
-}
-
-func PWContainsVerifier(classes []RuneClass) PasswordVerifier {
-	return func(pw string) bool {
-		return false
-	}
 }

@@ -44,7 +44,7 @@ type UserID int64
 // The strings are usually varchars with the following maximum lengths:
 // Username (150), password (270), EMail (254), FirstName (50), LastName(150).
 // These properties can also be verified before inserting the user to a database with
-// VerifyStandardUserLengths.
+// VerifyStandardUserMaxLens.
 // The database implementations don't check that automatically, but the convenient
 // wrappers I'm trying to implement will.
 type UserModel struct {
