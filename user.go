@@ -28,17 +28,25 @@ type UserID int64
 //
 // FirstName, LastName, Username, EMail should be self-explaining.
 // Password is the hash of the password (string).
-// IsActive is used as an alternative to destryoing an account.
+// IsActive is used as an alternative to destroying an account.
 // Because this could have some undesired effects it is preferred to just set
 // the user to inactive instead of deleting the user object.
-// IsSuperUser and isStaff should be true if the user is an "admin" user / part
+// IsSuperUser and IsStaff should be true if the user is an "admin" user / part
 // of the staff. This was inspired by the Django user model.
 // DateJoined and LastLogin should also be self-explaining.
 // Note that LastLogin can be zero, meaning if the user never logged in
 // LastLogin.IsZero() == true.
 //
 // In general UserID, Username and EMail should be unique.
-// TODO update doc: all times not nil
+//
+// Because this model is usually stored in a database here is a summary of some
+// conventions for the fields:
+// The strings are usually varchars with the following maximum lengths:
+// Username (150), password (270), EMail (254), FirstName (50), LastName(150).
+// These properties can also be verified before inserting the user to a database with
+// VerifyStandardUserLengths.
+// The database implementations don't check that automatically, but the convenient
+// wrappers I'm trying to implement will.
 type UserModel struct {
   	ID UserID
 	FirstName   string
@@ -53,6 +61,11 @@ type UserModel struct {
 	LastLogin   time.Time
 }
 
+// GetFieldByName returns the value of the field given by its string name.
+//
+// This helps with methods that for example only update certain fields.
+// The key must be the name of one of the fields of the user model.
+// If the key is invalid an error is returned.
 func (u *UserModel) GetFieldByName(name string) (val interface{}, err error) {
 	switch strings.ToLower(name) {
 	case "id":
@@ -78,7 +91,7 @@ func (u *UserModel) GetFieldByName(name string) (val interface{}, err error) {
 	case "lastlogin":
 		val = u.LastLogin
 	default:
-		err = fmt.Errorf("Invalid field name \"%s\": Must be a valid field name of the user model", name)
+		err = fmt.Errorf("invalid field name \"%s\": Must be a valid field name of the user model", name)
 	}
 	return
 }
@@ -88,5 +101,3 @@ const (
   // given credentials was found.
   InvalidUserID = UserID(-1)
 )
-
-// TODO validate user: email, password, ... must be given!

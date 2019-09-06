@@ -150,9 +150,8 @@ func (s *SQLUserStorage) Init() error {
 	var execErr error;
 	for _, initQuery := range s.Queries.Init() {
 		// execute only non-empty statements
-		// also: if an error already occurred don't execute the next, we'll do a rollback
-		// and return that error later
-		if initQuery != "" && execErr == nil {
+		// we'll do a rollback and return that error later
+		if initQuery != "" {
 			if _, err := tx.Exec(initQuery); err != nil {
 				execErr = err
 				break
@@ -163,11 +162,11 @@ func (s *SQLUserStorage) Init() error {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
 			return NewRollbackErr(execErr, rollbackErr)
 		}
-		return nil
+		return execErr
 	}
 	// commit
 	if commitErr := tx.Commit(); commitErr != nil {
-		return fmt.Errorf("commit in database init failed: %v", commitErr)
+		return fmt.Errorf("commit in database init failed: %s", commitErr.Error())
 	}
 	return nil
 }
