@@ -242,15 +242,25 @@ type RuneClass func(r rune) bool
 // the input.
 func ClassCounter(classes []RuneClass, s string) int {
 
-	numFulfilled := 0
+	// check class concurrently, write back to channel (either true or false)
+	ch := make(chan bool)
+	asRunes := []rune(s)
 	for _, class := range classes {
-		fulfilled := false
-		for _, char := range s {
-			if class(char) {
-				fulfilled = true
-				break
+		go func(c RuneClass) {
+			fulfilled := false
+			for _, char := range asRunes {
+				if c(char) {
+					fulfilled = true
+					break
+				}
 			}
-		}
+			ch <- fulfilled
+		}(class)
+	}
+
+	numFulfilled := 0
+	for i := 0; i < len(classes); i++ {
+		fulfilled := <-ch
 		if fulfilled {
 			numFulfilled++
 		}

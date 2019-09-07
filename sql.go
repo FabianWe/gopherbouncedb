@@ -38,7 +38,7 @@ var (
 )
 
 type UserSQL interface {
-	Init() []string
+	InitUsers() []string
 	GetUser() string
 	GetUserByName() string
 	GetUserByEmail() string
@@ -141,14 +141,14 @@ func NewSQLUserStorage(db *sql.DB, queries UserSQL, bridge SQLBridge) *SQLUserSt
 	return &SQLUserStorage{DB: db, Queries: queries, Bridge: bridge}
 }
 
-func (s *SQLUserStorage) Init() error {
+func (s *SQLUserStorage) InitUsers() error {
 	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
 	// save all exec errors in a variable, return later with rollback
 	var execErr error;
-	for _, initQuery := range s.Queries.Init() {
+	for _, initQuery := range s.Queries.InitUsers() {
 		// execute only non-empty statements
 		// we'll do a rollback and return that error later
 		if initQuery != "" {

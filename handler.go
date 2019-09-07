@@ -14,7 +14,10 @@
 
 package gopherbouncedb
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // NoSuchUser is an error returned when the lookup of a user failed because
 // no entry for that user exists.
@@ -96,8 +99,8 @@ func (e NotSupported) Error() string {
 // a database.
 // MemdummyUserStorage provides a reference implementation but should never be used in any real code.
 type UserStorage interface {
-  // Init should be called once to make sure all tables in the database exist etc.
-  Init() error
+  // InitUsers should be called once to make sure all tables in the database exist etc.
+  InitUsers() error
   // GetUser returns the user with the given id. If no such user exists it
   // should return nil and an error of type NoSuchUser.
   GetUser(id UserID) (*UserModel, error)
@@ -135,4 +138,23 @@ type UserStorage interface {
   // DeleteUser deletes the given user.
   // If no such user exists this will not be considered an error.
   DeleteUser(id UserID) error
+}
+
+type SessionStorage interface {
+	InitSesions() error
+	InsertSession(session *SessionEntry) error
+	GetSession(key string) (SessionEntry, error)
+	CleanUp(referenceDate time.Time) (int64, error)
+}
+
+// TODO ambigous + duplicate...: ÄNdern auf einen allgemeinen Typen
+// InitUsers umbenennen sonst gehts kaputt
+type GoauthStorage interface {
+	UserStorage
+	SessionStorage
+}
+
+type CombinedStorage struct {
+	UserStorage
+	SessionStorage
 }
