@@ -440,6 +440,7 @@ func (s *SQLUserStorage) GetUserByEmail(email string) (*UserModel, error) {
 }
 
 func (s *SQLUserStorage) InsertUser(user *UserModel) (UserID, error) {
+	user.ID = InvalidUserID
 	now := time.Now().UTC()
 	var zeroTime time.Time
 	// use the bridge conversion for time
@@ -464,6 +465,7 @@ func (s *SQLUserStorage) InsertUser(user *UserModel) (UserID, error) {
 		// not all drivers allow this
 		return InvalidUserID, NewNotSupported(idErr)
 	}
+	user.ID = UserID(lastInsertID)
 	return UserID(lastInsertID), nil
 }
 

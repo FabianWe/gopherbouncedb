@@ -19,32 +19,32 @@ import (
 	"github.com/FabianWe/gopherbouncedb"
 )
 
-type MemdummyTestBinding struct {}
+type memdummyTestBinding struct {}
 
-func (b MemdummyTestBinding) BeginInstance() gopherbouncedb.UserStorage {
+func (b memdummyTestBinding) BeginInstance() gopherbouncedb.UserStorage {
 	return gopherbouncedb.NewMemdummyUserStorage()
 }
 
-func (b MemdummyTestBinding) ClosteInstance(s gopherbouncedb.UserStorage) {
+func (b memdummyTestBinding) ClosteInstance(s gopherbouncedb.UserStorage) {
 
 }
 
 func TestInitMemdummy(t *testing.T) {
-	TestInitSuite(MemdummyTestBinding{}, t)
+	TestInitSuite(memdummyTestBinding{}, t)
 }
 
 func TestInsertMemdummy(t *testing.T) {
-	TestInsertSuite(MemdummyTestBinding{}, true, t)
+	TestInsertSuite(memdummyTestBinding{}, true, t)
 }
 
 func TestMemdummyLookup(t *testing.T) {
-	TestLookupSuite(MemdummyTestBinding{}, true, t)
+	TestLookupSuite(memdummyTestBinding{}, true, t)
 }
 
 func TestMemdummyUpdate(t *testing.T) {
-	TestUpdateUserSuite(MemdummyTestBinding{}, true, t)
+	TestUpdateUserSuite(memdummyTestBinding{}, true, t)
 }
 
 func TestMemdummyDelete(t *testing.T) {
-	TestDeleteUserSuite(MemdummyTestBinding{}, true, t)
+	TestDeleteUserSuite(memdummyTestBinding{}, true, t)
 }

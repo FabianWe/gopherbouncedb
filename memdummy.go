@@ -17,6 +17,7 @@ package gopherbouncedb
 import (
 	"sync"
 	"fmt"
+	"time"
 )
 
 // MemdummyUserStorage is an implementation of UserStorage using an in-memory storage.
@@ -98,6 +99,7 @@ func (s *MemdummyUserStorage) InsertUser(user *UserModel) (UserID, error) {
 	nextID := s.nextID
 	s.nextID++
 	user.ID = nextID
+	user.DateJoined = time.Now().UTC()
 	// add to mappings
 	s.idMapping[nextID] = user.Copy()
 	s.nameMapping[user.Username] = user.Copy()

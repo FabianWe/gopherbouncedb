@@ -83,6 +83,7 @@ func getFailEmail() []*gopherbouncedb.UserModel {
 func TestInitSuite(suite UserTestSuiteBinding, t *testing.T) {
 	restoreDefaults()
 	inst := suite.BeginInstance()
+	defer suite.ClosteInstance(inst)
 	initErr := inst.InitUsers()
 	if initErr != nil {
 		t.Error("Init failed:", initErr)
@@ -93,6 +94,7 @@ func insertSuccess(inst gopherbouncedb.UserStorage, t *testing.T) {
 	for _, u := range getInsertOK() {
 		if returnedID, insertErr := inst.InsertUser(u); insertErr != nil {
 			t.Fatal("Insert failed:", insertErr.Error())
+		} else {
 			if u.DateJoined.IsZero() {
 				t.Fatal("DateJoined not set correctly by InsertUser")
 			}
@@ -110,6 +112,7 @@ func insertSuccess(inst gopherbouncedb.UserStorage, t *testing.T) {
 func TestInsertSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing.T) {
 	restoreDefaults()
 	inst := suite.BeginInstance()
+	defer suite.ClosteInstance(inst)
 	initErr := inst.InitUsers()
 	if initErr != nil {
 		t.Fatal("Init failed:", initErr)
@@ -213,6 +216,7 @@ func doLookupTests(inst gopherbouncedb.UserStorage, mailUnique bool, checks []*g
 func TestLookupSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing.T) {
 	restoreDefaults()
 	inst := suite.BeginInstance()
+	defer suite.ClosteInstance(inst)
 	initErr := inst.InitUsers()
 	if initErr != nil {
 		t.Fatal("Init failed:", initErr)
@@ -235,7 +239,7 @@ func TestLookupSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing.T) 
 	}{
 		{invalid1, invalid1Err, "ID"},
 		{invalid2, invalid2Err, "EMail"},
-		{invalid3, invalid3Err, "UserName"},
+		{invalid3, invalid3Err, "Username"},
 	}
 
 	for _, res := range collected {
@@ -256,6 +260,7 @@ func TestLookupSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing.T) 
 func TestUpdateUserSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing.T) {
 	restoreDefaults()
 	inst := suite.BeginInstance()
+	defer suite.ClosteInstance(inst)
 	initErr := inst.InitUsers()
 	if initErr != nil {
 		t.Fatal("Init failed:", initErr)
@@ -286,9 +291,9 @@ func TestUpdateUserSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing
 
 	// now updates with fields set
 	updateFields := [][]string{
-		{"UserName"},
+		{"Username"},
 		{"EMail"},
-		{"UserName", "IsSuperUser"},
+		{"Username", "IsSuperUser"},
 	}
 	for i, u := range updatesUsers {
 		if updateErr := inst.UpdateUser(u.ID, u, updateFields[i]); updateErr != nil {
@@ -302,6 +307,7 @@ func TestUpdateUserSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing
 func TestDeleteUserSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing.T) {
 	restoreDefaults()
 	inst := suite.BeginInstance()
+	defer suite.ClosteInstance(inst)
 	initErr := inst.InitUsers()
 	if initErr != nil {
 		t.Fatal("Init failed:", initErr)
