@@ -22,6 +22,8 @@ import (
 )
 
 var (
+	// DefaultUserRowNames matches the fields from UserModel (as strings)
+	// to the default name of a sql row.
 	DefaultUserRowNames = map[string]string{
 		"ID": "id",
 		"FirstName": "first_name",
@@ -37,6 +39,9 @@ var (
 	}
 )
 
+// UserSQL defines an interface for working with users in a sql database.
+//
+//
 type UserSQL interface {
 	InitUsers() []string
 	GetUser() string
@@ -126,8 +131,8 @@ func (e RollbackErr) Error() string {
 type SQLBridge interface {
 	TimeScanType() interface{}
 	ConvertTimeScanType(val interface{}) (time.Time, error)
-	ConvertExistsErr(err error) error
-	ConvertAmbiguousErr(err error) error
+	IsDuplicateInsert(err error) bool
+	IsDuplicateUpdate(err error) bool
 	ConvertTime(t time.Time) interface{}
 }
 
@@ -241,7 +246,11 @@ func (s *SQLUserStorage) InsertUser(user *UserModel) (UserID, error) {
 		user.IsActive, dateJoined, lastLogin)
 	if err != nil {
 		user.ID = InvalidUserID
-		return InvalidUserID, s.Bridge.ConvertExistsErr(err)
+		if s.Bridge.IsDuplicateInsert(err) {
+			return InvalidUserID,
+				NewUserExists(fmt.Sprintf("unique constraint failed: %s", err.Error()))
+		}
+		return InvalidUserID, err
 	}
 	lastInsertID, idErr := r.LastInsertId()
 	if idErr != nil {
@@ -261,7 +270,10 @@ func (s *SQLUserStorage) UpdateUser(id UserID, newCredentials *UserModel, fields
 		newCredentials.IsStaff, newCredentials.IsActive,
 		dateJoined, lastLogin, id)
 	if err != nil {
-		return s.Bridge.ConvertAmbiguousErr(err)
+		if s.Bridge.IsDuplicateUpdate(err) {
+			return NewAmbiguousCredentials(fmt.Sprintf("unique constraint failed: %s", err.Error()))
+		}
+		return err
 	}
 	return nil
 }

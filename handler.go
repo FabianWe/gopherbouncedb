@@ -30,16 +30,19 @@ func NewNoSuchUser(message string) NoSuchUser {
   return NoSuchUser{Err: message}
 }
 
+// NewNoSuchUserID returns a new NoSuchUser error with a given id.
 func NewNoSuchUserID(id UserID) NoSuchUser {
-  return NewNoSuchUser(fmt.Sprintf("User with id %d does not exist",id))
+  return NewNoSuchUser(fmt.Sprintf("user with id %d does not exist",id))
 }
 
+// NewNoSuchUserUsername returns a new NoSuchUser error with a given user name.
 func NewNoSuchUserUsername(username string) NoSuchUser {
-	return NewNoSuchUser(fmt.Sprintf("User with username \"%s\" does not exist", username))
+	return NewNoSuchUser(fmt.Sprintf("user with username \"%s\" does not exist", username))
 }
 
+// NewNoSuchUserMail returns a new NoSuchUser error with a given email.
 func NewNoSuchUserMail(email string) NoSuchUser {
-	return NewNoSuchUser(fmt.Sprintf("User with email \"%s\" does not exist", email))
+	return NewNoSuchUser(fmt.Sprintf("user with email \"%s\" does not exist", email))
 }
 
 // Error returns the error string.

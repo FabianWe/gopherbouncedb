@@ -41,7 +41,7 @@ func NewMemdummyUserStorage() *MemdummyUserStorage {
 	}
 }
 
-func (s *MemdummyUserStorage) Init() error {
+func (s *MemdummyUserStorage) InitUsers() error {
 	return nil
 }
 
@@ -50,7 +50,7 @@ func (s *MemdummyUserStorage) GetUser(id UserID) (*UserModel, error) {
 	defer s.mutex.RUnlock()
 	user, has := s.idMapping[id]
 	if !has {
-		return nil, NewNoSuchUser(fmt.Sprintf("User with id %d does not exist", id))
+		return nil, NewNoSuchUser(fmt.Sprintf("user with id %d does not exist", id))
 	}
 	return user, nil
 }
@@ -60,7 +60,7 @@ func (s *MemdummyUserStorage) GetUserByName(username string) (*UserModel, error)
 	defer s.mutex.RUnlock()
 	user, has := s.nameMapping[username]
 	if !has {
-		return nil, NewNoSuchUser(fmt.Sprintf("User with username %s does not exist", username))
+		return nil, NewNoSuchUser(fmt.Sprintf("user with username %s does not exist", username))
 	}
 	return user, nil
 }
@@ -70,7 +70,7 @@ func (s *MemdummyUserStorage) GetUserByEmail(email string) (*UserModel, error) {
 	defer s.mutex.RUnlock()
 	user, has := s.mailMapping[email]
 	if !has {
-		return nil, NewNoSuchUser(fmt.Sprintf("User with email %s does not exist",email))
+		return nil, NewNoSuchUser(fmt.Sprintf("user with email %s does not exist",email))
 	}
 	return user, nil
 }
@@ -80,10 +80,10 @@ func (s *MemdummyUserStorage) InsertUser(user *UserModel) (UserID, error) {
 	defer s.mutex.Unlock()
 	// check if username or email already in use
 	if _, hasName := s.nameMapping[user.Username]; hasName {
-		return InvalidUserID, NewUserExists(fmt.Sprintf("User with name %s already exists", user.Username))
+		return InvalidUserID, NewUserExists(fmt.Sprintf("user with name %s already exists", user.Username))
 	}
 	if _, hasMail := s.mailMapping[user.EMail]; hasMail {
-		return InvalidUserID, NewUserExists(fmt.Sprintf("User with email %s already exists", user.EMail))
+		return InvalidUserID, NewUserExists(fmt.Sprintf("user with email %s already exists", user.EMail))
 	}
 	// get next id
 	nextID := s.nextID
@@ -103,18 +103,18 @@ func (s *MemdummyUserStorage) UpdateUser(id UserID, newCredentials *UserModel, f
 	// first find the user with the given id
 	existing, has := s.idMapping[id]
 	if !has {
-		return NewNoSuchUser(fmt.Sprintf("User with id %d does not exist", id))
+		return NewNoSuchUser(fmt.Sprintf("user with id %d does not exist", id))
 	}
 	// next check if the new username is already in use. if yes: update is only allowed if it refers to the same
 	// user (this means the username has not changed). Otherwise the username is used by another account and
 	// can't be changed
 
 	if fromName, hasName := s.nameMapping[newCredentials.Username]; hasName && fromName.ID != existing.ID {
-		return NewAmbiguousCredentials(fmt.Sprintf("Username %s is already in use", newCredentials.Username))
+		return NewAmbiguousCredentials(fmt.Sprintf("username %s is already in use", newCredentials.Username))
 	}
 	// same for mail
 	if fromMail, hasMail := s.mailMapping[newCredentials.EMail]; hasMail && fromMail.ID != existing.ID {
-		return NewAmbiguousCredentials(fmt.Sprintf("User with email %s already exists", newCredentials.EMail))
+		return NewAmbiguousCredentials(fmt.Sprintf("user with email %s already exists", newCredentials.EMail))
 	}
 	// now everything is okay so we just update
 	s.idMapping[id] = newCredentials
@@ -128,14 +128,14 @@ func (s *MemdummyUserStorage) UpdateUser(id UserID, newCredentials *UserModel, f
 }
 
 func (s *MemdummyUserStorage) DeleteUser(id UserID) error {
-	// first get username and email, these entries should be deleted as well
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	existing, has := s.idMapping[id]
 	if !has {
-		return NewNoSuchUser(fmt.Sprintf("User with id %d does not exist", id))
+		return NewNoSuchUser(fmt.Sprintf("user with id %d does not exist", id))
 	}
 	delete(s.nameMapping, existing.Username)
 	delete(s.mailMapping, existing.EMail)
-	// delete id
 	delete(s.idMapping, id)
 	return nil
 }

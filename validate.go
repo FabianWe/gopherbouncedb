@@ -268,15 +268,7 @@ func ClassCounter(classes []RuneClass, s string) int {
 	return numFulfilled
 }
 
-// PWContainsAll is a generator that returns a PasswordVerifier.
-//
-// The returned verifier tests if the password contains at least one char of each class.
-func PWContainsAll(classes []RuneClass) PasswordVerifier {
-	n := len(classes)
-	return func(pw string) bool {
-		return ClassCounter(classes, pw) == n
-	}
-}
+
 
 // LowerLetterClass tests if 'a' ≤ r ≤ 'z'.
 func LowerLetterClass(r rune) bool {
@@ -293,8 +285,34 @@ func DigitClass(r rune) bool {
 	return r >= '0' && r <= '9'
 }
 
+const (
+	// SpecialChars defines the special characters that must be included in a password
+	// to pass the SpecialCharacterClass.
+	SpecialChars = "~!@#$%^&*()+=_-{}[]\\|:;?/<>,"
+)
+
 // SpecialCharacterClass tests if the rune is a special char from
-// ~!@#$%^&*()+=_-{}[]\\|:;?/<>,
+// SpecialChars.
 func SpecialCharacterClass(r rune) bool {
-	return strings.ContainsAny(string(r), "~!@#$%^&*()+=_-{}[]\\|:;?/<>,")
+	return strings.ContainsAny(string(r), SpecialChars)
+}
+
+// PWContainsAll is a generator that returns a PasswordVerifier.
+//
+// The returned verifier tests if the password contains at least one char of each class.
+func PWContainsAll(classes []RuneClass) PasswordVerifier {
+	n := len(classes)
+	return func(pw string) bool {
+		return ClassCounter(classes, pw) == n
+	}
+}
+
+// PWContainsAtLeast is a generator that returns a PasswordVerifier.
+//
+// The returned verifier tests if the password contains at least one char from k different
+// classes.
+func PWContainsAtLeast(classes []RuneClass, k int) PasswordVerifier {
+	return func(pw string) bool {
+		return ClassCounter(classes, pw) >= k
+	}
 }
