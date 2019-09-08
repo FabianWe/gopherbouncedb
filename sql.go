@@ -19,6 +19,7 @@ import (
 	"strings"
 	"fmt"
 	"time"
+	"reflect"
 )
 
 var (
@@ -79,6 +80,7 @@ type UserSQL interface {
 	InsertUser() string
 	UpdateUser(fields []string) string
 	DeleteUser() string
+	SupportsUserFields() bool
 }
 
 // SQLTemplateReplacer is used to replace the meta variables in the queries of a UserSQL
@@ -407,14 +409,56 @@ func (s *SQLUserStorage) InsertUser(user *UserModel) (UserID, error) {
 	return UserID(lastInsertID), nil
 }
 
+func (s *SQLUserStorage) prepareUpdateArgs(id UserID, u *UserModel, fields []string) ([]interface{}, error) {
+	var res []interface{}
+	if len(fields) == 0 {
+		dateJoined := s.Bridge.ConvertTime(u.DateJoined)
+		lastLogin := s.Bridge.ConvertTime(u.LastLogin)
+		res = []interface{}{
+			u.Username, u.Password, u.EMail, u.FirstName, u.LastName, u.IsSuperUser,
+			u.IsStaff, u.IsActive, dateJoined, lastLogin,
+			id,
+		}
+	} else {
+		res = make([]interface{}, len(fields)+1)
+		for i, fieldName := range fields {
+			if arg, argErr := u.GetFieldByName(fieldName); argErr == nil {
+				fieldName = strings.ToLower(fieldName)
+				if fieldName == "datejoined" || fieldName == "lastlogin" {
+					if t, isTime := arg.(time.Time); isTime {
+						arg = s.Bridge.ConvertTime(t)
+					} else {
+						return nil,
+							fmt.Errorf("DateJoined / LastLogin must be time.Time, got type %v", reflect.TypeOf(arg))
+					}
+				}
+				res[i] = arg
+			} else {
+				return nil, argErr
+			}
+		}
+		res[len(fields)] = id
+	}
+	return res, nil
+}
+
 func (s *SQLUserStorage) UpdateUser(id UserID, newCredentials *UserModel, fields []string) error {
-	dateJoined := s.Bridge.ConvertTime(newCredentials.DateJoined)
-	lastLogin := s.Bridge.ConvertTime(newCredentials.LastLogin)
-	_, err := s.DB.Exec(s.Queries.UpdateUser(fields),
-		newCredentials.Username, newCredentials.Password, newCredentials.EMail,
-		newCredentials.FirstName, newCredentials.LastName, newCredentials.IsSuperUser,
-		newCredentials.IsStaff, newCredentials.IsActive,
-		dateJoined, lastLogin, id)
+	// check if it's supported to use fields, compute actual arguments depending on that
+	var stmt string
+	var args []interface{}
+	var argsErr error
+	if s.Queries.SupportsUserFields() {
+		stmt = s.Queries.UpdateUser(fields)
+		args, argsErr = s.prepareUpdateArgs(id, newCredentials, fields)
+	} else {
+		stmt = s.Queries.UpdateUser(nil)
+		args, argsErr = s.prepareUpdateArgs(id, newCredentials, nil)
+	}
+	if argsErr != nil {
+		return fmt.Errorf("Can't prepare user update arguments: %s", argsErr.Error())
+	}
+
+	_, err := s.DB.Exec(stmt, args...)
 	if err != nil {
 		if s.Bridge.IsDuplicateUpdate(err) {
 			return NewAmbiguousCredentials(fmt.Sprintf("unique constraint failed: %s", err.Error()))
