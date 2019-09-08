@@ -18,6 +18,7 @@ import (
 	"github.com/FabianWe/gopherbouncedb"
 	"testing"
 	"reflect"
+	"time"
 )
 
 type UserTestSuiteBinding interface {
@@ -149,12 +150,23 @@ func TestInsertSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing.T) 
 	}
 }
 
+func compareTime(t1, t2 time.Time) bool {
+	allowedDiff := time.Duration(1 * time.Second)
+	d := t1.Sub(t2)
+	if d < 0 {
+		d = -d
+	}
+	return d <= allowedDiff
+
+}
+
 func compareUsers(u1, u2 *gopherbouncedb.UserModel) bool {
 	return u1.FirstName == u2.FirstName && u1.LastName == u2.LastName &&
 		u1.Username == u2.Username && u1.EMail == u2.EMail &&
 		u1.Password == u2.Password && u1.IsActive == u2.IsActive &&
 		u1.IsSuperUser == u2.IsSuperUser && u1.IsStaff == u2.IsStaff &&
-		u1.DateJoined == u2.DateJoined && u1.LastLogin == u2.LastLogin
+		compareTime(u1.DateJoined, u2.DateJoined) &&
+		compareTime(u1.LastLogin, u2.LastLogin)
 }
 
 func doLookupTests(inst gopherbouncedb.UserStorage, mailUnique bool, checks []*gopherbouncedb.UserModel, t *testing.T) {

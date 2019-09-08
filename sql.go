@@ -405,11 +405,13 @@ func (s *SQLUserStorage) scanUser(row *sql.Row, noUser func() error) (*UserModel
 	if dj, djErr := s.Bridge.ConvertTimeScanType(dateJoined); djErr != nil {
 		return nil, djErr
 	} else {
+		dj = dj.UTC()
 		user.DateJoined = dj
 	}
 	if ll, llErr := s.Bridge.ConvertTimeScanType(lastLogin); llErr != nil {
 		return nil, llErr
 	} else {
+		ll = ll.UTC()
 		user.LastLogin = ll
 	}
 	return &user, nil
@@ -443,6 +445,7 @@ func (s *SQLUserStorage) InsertUser(user *UserModel) (UserID, error) {
 	user.ID = InvalidUserID
 	now := time.Now().UTC()
 	var zeroTime time.Time
+	zeroTime = zeroTime.UTC()
 	// use the bridge conversion for time
 	dateJoined := s.Bridge.ConvertTime(now)
 	lastLogin := s.Bridge.ConvertTime(zeroTime)
@@ -472,8 +475,8 @@ func (s *SQLUserStorage) InsertUser(user *UserModel) (UserID, error) {
 func (s *SQLUserStorage) prepareUpdateArgs(id UserID, u *UserModel, fields []string) ([]interface{}, error) {
 	var res []interface{}
 	if len(fields) == 0 {
-		dateJoined := s.Bridge.ConvertTime(u.DateJoined)
-		lastLogin := s.Bridge.ConvertTime(u.LastLogin)
+		dateJoined := s.Bridge.ConvertTime(u.DateJoined.UTC())
+		lastLogin := s.Bridge.ConvertTime(u.LastLogin.UTC())
 		res = []interface{}{
 			u.Username, u.Password, u.EMail, u.FirstName, u.LastName, u.IsSuperUser,
 			u.IsStaff, u.IsActive, dateJoined, lastLogin,
@@ -486,7 +489,7 @@ func (s *SQLUserStorage) prepareUpdateArgs(id UserID, u *UserModel, fields []str
 				fieldName = strings.ToLower(fieldName)
 				if fieldName == "datejoined" || fieldName == "lastlogin" {
 					if t, isTime := arg.(time.Time); isTime {
-						arg = s.Bridge.ConvertTime(t)
+						arg = s.Bridge.ConvertTime(t.UTC())
 					} else {
 						return nil,
 							fmt.Errorf("DateJoined / LastLogin must be time.Time, got type %v", reflect.TypeOf(arg))
@@ -525,7 +528,7 @@ func (s *SQLUserStorage) UpdateUser(id UserID, newCredentials *UserModel, fields
 		args, argsErr = s.prepareUpdateArgs(id, newCredentials, nil)
 	}
 	if argsErr != nil {
-		return fmt.Errorf("Can't prepare user update arguments: %s", argsErr.Error())
+		return fmt.Errorf("can't prepare user update arguments: %s", argsErr.Error())
 	}
 
 	_, err := s.DB.Exec(stmt, args...)
