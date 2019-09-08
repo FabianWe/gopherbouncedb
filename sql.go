@@ -69,7 +69,7 @@ func NewSQLTemplateReplacer() *SQLTemplateReplacer {
 func DefaultSQLReplacer() *SQLTemplateReplacer {
 	res := NewSQLTemplateReplacer()
 	values := map[string]string{
-		"$TABLE_NAME$": "auth_user",
+		"$USERS_TABLE_NAME$": "auth_user",
 		"$EMAIL_UNIQUE$": "UNIQUE",
 	}
 	res.UpdateDict(values)
