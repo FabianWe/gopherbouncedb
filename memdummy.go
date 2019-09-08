@@ -37,7 +37,7 @@ func NewMemdummyUserStorage() *MemdummyUserStorage {
 		idMapping: make(map[UserID]*UserModel),
 		nameMapping: make(map[string]*UserModel),
 		mailMapping: make(map[string]*UserModel),
-		nextID: 0,
+		nextID: 1,
 	}
 }
 
@@ -47,7 +47,7 @@ func (s *MemdummyUserStorage) Clear() {
 	s.idMapping = make(map[UserID]*UserModel)
 	s.nameMapping = make(map[string]*UserModel)
 	s.mailMapping = make(map[string]*UserModel)
-	s.nextID = 0
+	s.nextID = 1
 }
 
 func (s *MemdummyUserStorage) InitUsers() error {

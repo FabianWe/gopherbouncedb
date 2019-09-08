@@ -154,13 +154,16 @@ func compareUsers(u1, u2 *gopherbouncedb.UserModel) bool {
 		u1.DateJoined == u2.DateJoined && u1.LastLogin == u2.LastLogin
 }
 
-func doLookupTests(inst gopherbouncedb.UserStorage, mailUnique bool, t *testing.T) {
-	idRes := make([]*gopherbouncedb.UserModel, 0, 3)
-	usernameRes := make([]*gopherbouncedb.UserModel, 0, 3)
-	emailRes := make([]*gopherbouncedb.UserModel, 0, 3)
+func doLookupTests(inst gopherbouncedb.UserStorage, mailUnique bool, checks []*gopherbouncedb.UserModel, t *testing.T) {
+	if checks == nil {
+		checks = getInsertOK()
+	}
+	idRes := make([]*gopherbouncedb.UserModel, 0, len(checks))
+	usernameRes := make([]*gopherbouncedb.UserModel, 0, len(checks))
+	emailRes := make([]*gopherbouncedb.UserModel, 0, len(checks))
 	// now we should be able to lookup all three elements:
 	// by id, username and email (if mail is unique)
-	for _, u := range getInsertOK() {
+	for _, u := range checks {
 		if lookup, lookupErr := inst.GetUser(u.ID); lookupErr == nil {
 			idRes = append(idRes, lookup)
 		} else {
@@ -184,7 +187,7 @@ func doLookupTests(inst gopherbouncedb.UserStorage, mailUnique bool, t *testing.
 		}
 	}
 	// now test for equality
-	for i, u := range getInsertOK() {
+	for i, u := range checks {
 		lookupID := idRes[i]
 		lookupName := usernameRes[i]
 		var lookupMail *gopherbouncedb.UserModel
@@ -217,7 +220,37 @@ func TestLookupSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing.T) 
 	// make inserts that should work
 	insertSuccess(inst, t)
 	// run compares
-	doLookupTests(inst, mailUnique, t)
+	doLookupTests(inst, mailUnique, nil, t)
+
+	// now perform some tests for users that shouldn't exist
+
+	invalid1, invalid1Err := inst.GetUser(gopherbouncedb.InvalidUserID)
+	invalid2, invalid2Err := inst.GetUserByEmail("user@exists.not")
+	invalid3, invalid3Err := inst.GetUserByName("nonexistent")
+
+	collected := []struct{
+		u *gopherbouncedb.UserModel
+		err error
+		key string
+	}{
+		{invalid1, invalid1Err, "ID"},
+		{invalid2, invalid2Err, "EMail"},
+		{invalid3, invalid3Err, "UserName"},
+	}
+
+	for _, res := range collected {
+		u, err, key := res.u, res.err, res.key
+		if err == nil {
+			t.Fatalf("Lookup for %s should not succeed, but it did and returned %v",
+				key, u)
+		}
+		// test if its NoSuchUser
+		if _, isNoUserErr := err.(gopherbouncedb.NoSuchUser); !isNoUserErr {
+			t.Fatalf("Get for %s for non-existing user didn't return NoSuchUser but %v with error message %s",
+				key, reflect.TypeOf(err), err.Error())
+		}
+	}
+
 }
 
 func TestUpdateUserSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing.T) {
@@ -249,7 +282,7 @@ func TestUpdateUserSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing
 		}
 	}
 	// now compare
-	doLookupTests(inst, mailUnique, t)
+	doLookupTests(inst, mailUnique, nil, t)
 
 	// now updates with fields set
 	updateFields := [][]string{
@@ -263,5 +296,35 @@ func TestUpdateUserSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing
 		}
 	}
 	// compare again
-	doLookupTests(inst, mailUnique, t)
+	doLookupTests(inst, mailUnique, nil, t)
+}
+
+func TestDeleteUserSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing.T) {
+	restoreDefaults()
+	inst := suite.BeginInstance()
+	initErr := inst.InitUsers()
+	if initErr != nil {
+		t.Fatal("Init failed:", initErr)
+	}
+	// make inserts that should work
+	insertSuccess(inst, t)
+	// remove user 2, then test that user 1 and 3 are still there, but 2 isn't
+	u2 := users[1]
+	if deleteErr := inst.DeleteUser(u2.ID); deleteErr != nil {
+		t.Fatalf("Deletion of user with id %d resulted in an error: %s",
+			u2.ID, deleteErr.Error())
+	}
+	testModels := []*gopherbouncedb.UserModel{users[0], users[2]}
+	doLookupTests(inst, mailUnique, testModels, t)
+	// now test that u2 isn't there any more
+	u, getErr := inst.GetUser(u2.ID)
+	if getErr == nil {
+		t.Fatalf("Lookup for id %d should not succeed, but it did and returned %v",
+			u2.ID, u)
+	}
+	// error should be of type NoSuchUser
+	if _, isNoUserErr := getErr.(gopherbouncedb.NoSuchUser); !isNoUserErr {
+		t.Fatalf("Get user for non-existing user (%d) didn't return NoSuchUser but %v with error message %s",
+			u2.ID, reflect.TypeOf(getErr), getErr.Error())
+	}
 }

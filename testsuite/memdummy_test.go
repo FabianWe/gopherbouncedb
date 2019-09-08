@@ -44,3 +44,7 @@ func TestMemdummyLookup(t *testing.T) {
 func TestMemdummyUpdate(t *testing.T) {
 	TestUpdateUserSuite(MemdummyTestBinding{}, true, t)
 }
+
+func TestMemdummyDelete(t *testing.T) {
+	TestDeleteUserSuite(MemdummyTestBinding{}, true, t)
+}
