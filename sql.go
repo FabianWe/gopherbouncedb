@@ -45,8 +45,8 @@ var (
 // It is used in the generic SQLStorage to retrieve database specific queries.
 // The queries may (and should) contain placeholders (not the queries returned by
 // your implementation, see the note below).
-// For example the database name might be changed, the default name for the user table
-// is "auth_user". To be more flexible this table name can be changed.
+// For example the table name might be changed, the default name for the user table
+// is "auth_user". To be more flexible this, the table name can be changed.
 // Thus the queries can contain a variable that gets replaced with the actual
 // table name. This meta variable has the form $SOME_NAME$.
 // The following variables are enabled by default:
@@ -66,21 +66,71 @@ var (
 // and then apply a replacer by yourself once to get rid of the placeholders.
 // Of course you don't need to use this feature, but it keeps your tables more dynamic
 // and allows more configuration.
-// A small example is given in the sqlite driver (and all others as well):
+// As an example you might look at one of the implementations, for example the driver.
 // All queries exist as a const string with placeholders.
 // Then a replacer is run once and the implementation only returns those strings.
 // They also use other placeholders to be used for example with for dynamic update queries.
-// This implementation actually returns queries
-// TODO finish doc once everything is implemented correctly in the drivers.
+// The replacement of the fields variables is then done directly in the UpdateUser query.
 type UserSQL interface {
+	// InitUsers returns a sequence of init actions.
+	// They're all run on one transaction and rolled-back if one fails.
+	// In this query als initialization should happen, usually something like
+	// "create table if not exists" (or creating an index).
 	InitUsers() []string
+	// GetUser is the query to return a user with a given id.
+	// It must select all fields from the user table in the following order:
+	// id, user name, password, email, first name, last name, is superuser,
+	// is staff, is active, date joined, last login.
+	//
+	// Exactly one element is passed to the query and that is the user id to look for.
 	GetUser() string
+	// GetUserByName does the same as GetUser but instead of an id gets a user name to
+	// look for.
 	GetUserByName() string
+	// GetUserByEmail does the same as GetUser but instead of an id gets an email to
+	// look for.
+	// If the email is not unique this might lead to errors.
 	GetUserByEmail() string
+	// InsertUser inserts a new user into the database.
+	//
+	// The arguments parsed into Execute are the same once (and in the same order)
+	// as in GetUser, except the id field (that is automatically generated).
 	InsertUser() string
+	// UpdateUser is used to update a user.
+	// The query might depend on the fields which we want to update.
+	// You don't have to support update by fields and just update all fields, even
+	// those not given in fields. Just make sure to implement this in the
+	// SupportsUserFields function.
+	//
+	// The sql implementation works as follows: If SupportsUserFields returns false
+	// UpdateUser is always called with nil, meaning all fields must be updated.
+	// If SupportsUserFields returns true then this function is called with the
+	// actual fields and the returned statement updates should only those fields.
+	//
+	// Concerning in the arguments: In case len(fields) == 0 the same order as in GetUser,
+	// except the id (this one can't be updated).
+	// If fields is given the order of the arguments are in the same order as the fields.
+	// The contents of fields are discussed in more detail in the documentation of the
+	// UserStorage interface.
+	// In all cases the id is passed as the last element.
+	// This is the argument used usually in the WHERE clause and defines the user to
+	// update by its id.
+	//
+	// A small example: If fields is nil: ... SET username=?, ... WHERE id=?.
+	// The arguments are given in the order username, ..., id.
+	//
+	// If fields is given for example as ["LastName", "EMail"]:
+	// ... SET last_name=?, email=? WHERE id=?.
+	// The arguments are given in the order last_name, email, id.
 	UpdateUser(fields []string) string
-	DeleteUser() string
+	// SupportsUserFields returns true if UpdateUser has the additional fields update
+	// ability.
+	// It's totally okay to return false and always update all values.
+	// In this case UpdateUser always gets called with nil.
 	SupportsUserFields() bool
+	// DeleteUser removes a user from the database.
+	// It is given a single argument, the user id.
+	DeleteUser() string
 }
 
 // SQLTemplateReplacer is used to replace the meta variables in the queries of a UserSQL
@@ -291,17 +341,19 @@ type SQLUserStorage struct {
 	Bridge SQLBridge
 }
 
+// NewSQLUserStorage returns a new SQLUserStorage.
 func NewSQLUserStorage(db *sql.DB, queries UserSQL, bridge SQLBridge) *SQLUserStorage {
 	return &SQLUserStorage{DB: db, Queries: queries, Bridge: bridge}
 }
 
+// InitUsers executes all init queries in a single transaction.
 func (s *SQLUserStorage) InitUsers() error {
 	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
 	// save all exec errors in a variable, return later with rollback
-	var execErr error;
+	var execErr error
 	for _, initQuery := range s.Queries.InitUsers() {
 		// execute only non-empty statements
 		// we'll do a rollback and return that error later
@@ -325,7 +377,7 @@ func (s *SQLUserStorage) InitUsers() error {
 	return nil
 }
 
-func (s *SQLUserStorage) scanUser(row *sql.Row, noUser NoSuchUser) (*UserModel, error) {
+func (s *SQLUserStorage) scanUser(row *sql.Row, noUser func() error) (*UserModel, error) {
 	var userId UserID
 	var username, password, email, firstName, lastName string
 	var isSuperuser, isStaff, isActive bool
@@ -336,7 +388,7 @@ func (s *SQLUserStorage) scanUser(row *sql.Row, noUser NoSuchUser) (*UserModel, 
 		&isActive, dateJoined, lastLogin)
 	switch {
 	case scanErr == sql.ErrNoRows:
-		return nil, noUser
+		return nil, noUser()
 	case scanErr != nil:
 		return nil, scanErr
 	}
@@ -365,19 +417,25 @@ func (s *SQLUserStorage) scanUser(row *sql.Row, noUser NoSuchUser) (*UserModel, 
 
 func (s *SQLUserStorage) GetUser(id UserID) (*UserModel, error) {
 	row := s.DB.QueryRow(s.Queries.GetUser(), id)
-	notExists := NewNoSuchUserID(id)
+	notExists := func() error {
+		return NewNoSuchUserID(id)
+	}
 	return s.scanUser(row, notExists)
 }
 
 func (s *SQLUserStorage) GetUserByName(username string) (*UserModel, error) {
 	row := s.DB.QueryRow(s.Queries.GetUserByName(), username)
-	notExists := NewNoSuchUserUsername(username)
+	notExists := func() error {
+		return NewNoSuchUserUsername(username)
+	}
 	return s.scanUser(row, notExists)
 }
 
 func (s *SQLUserStorage) GetUserByEmail(email string) (*UserModel, error) {
 	row := s.DB.QueryRow(s.Queries.GetUserByEmail(), email)
-	notExists := NewNoSuchUserMail(email)
+	notExists := func() error {
+		return NewNoSuchUserMail(email)
+	}
 	return s.scanUser(row, notExists)
 }
 
@@ -442,6 +500,16 @@ func (s *SQLUserStorage) prepareUpdateArgs(id UserID, u *UserModel, fields []str
 	return res, nil
 }
 
+// UpdateUser is a bit more complicated then the other functions.
+// Its behavior is defined in the UserSQL documentation, but here's a small
+// summary of what happens: If SupportsUserFields returns false the query call from
+// UpdateUser(nil) is used and the arguments are given in the default order, that is
+// username, email, ... and the id as the last element.
+//
+// If SupportsUserFields returns true only the arguments as defined in fields are
+// given (in the order as tehy're mentioned) and UpdateUser is called with these fields
+// and must return a query that updates these fields.
+// Again the user id is given as the last argument.
 func (s *SQLUserStorage) UpdateUser(id UserID, newCredentials *UserModel, fields []string) error {
 	// check if it's supported to use fields, compute actual arguments depending on that
 	var stmt string
