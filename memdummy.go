@@ -41,6 +41,15 @@ func NewMemdummyUserStorage() *MemdummyUserStorage {
 	}
 }
 
+func (s *MemdummyUserStorage) Clear() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.idMapping = make(map[UserID]*UserModel)
+	s.nameMapping = make(map[string]*UserModel)
+	s.mailMapping = make(map[string]*UserModel)
+	s.nextID = 0
+}
+
 func (s *MemdummyUserStorage) InitUsers() error {
 	return nil
 }
@@ -90,9 +99,9 @@ func (s *MemdummyUserStorage) InsertUser(user *UserModel) (UserID, error) {
 	s.nextID++
 	user.ID = nextID
 	// add to mappings
-	s.idMapping[nextID] = user
-	s.nameMapping[user.Username] = user
-	s.mailMapping[user.Username] = user
+	s.idMapping[nextID] = user.Copy()
+	s.nameMapping[user.Username] = user.Copy()
+	s.mailMapping[user.EMail] = user.Copy()
 	return nextID, nil
 }
 
@@ -117,13 +126,13 @@ func (s *MemdummyUserStorage) UpdateUser(id UserID, newCredentials *UserModel, f
 		return NewAmbiguousCredentials(fmt.Sprintf("user with email %s already exists", newCredentials.EMail))
 	}
 	// now everything is okay so we just update
-	s.idMapping[id] = newCredentials
+	s.idMapping[id] = newCredentials.Copy()
 	// delete entries for username and email, they might have changed
 	delete(s.nameMapping, newCredentials.Username)
 	delete(s.mailMapping, newCredentials.EMail)
 	// set new values
-	s.nameMapping[newCredentials.Username] = newCredentials
-	s.mailMapping[newCredentials.EMail] = newCredentials
+	s.nameMapping[newCredentials.Username] = newCredentials.Copy()
+	s.mailMapping[newCredentials.EMail] = newCredentials.Copy()
 	return nil
 }
 

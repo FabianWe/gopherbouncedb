@@ -61,6 +61,22 @@ type UserModel struct {
 	LastLogin   time.Time
 }
 
+func (u *UserModel) Copy() *UserModel {
+	res := &UserModel{}
+	res.ID = u.ID
+	res.FirstName = u.FirstName
+	res.LastName = u.LastName
+	res.Username = u.Username
+	res.EMail = u.EMail
+	res.Password = u.Password
+	res.IsActive = u.IsActive
+	res.IsSuperUser = u.IsSuperUser
+	res.IsStaff = u.IsStaff
+	res.DateJoined = u.DateJoined
+	res.LastLogin = u.LastLogin
+	return res
+}
+
 // GetFieldByName returns the value of the field given by its string name.
 //
 // This helps with methods that for example only update certain fields.
