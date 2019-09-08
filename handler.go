@@ -150,7 +150,6 @@ type SessionStorage interface {
 	CleanUp(referenceDate time.Time) (int64, error)
 }
 
-// TODO ambigous + duplicate...: ÄNdern auf einen allgemeinen Typen
 // InitUsers umbenennen sonst gehts kaputt
 type GoauthStorage interface {
 	UserStorage

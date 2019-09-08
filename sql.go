@@ -410,8 +410,7 @@ func (s *SQLUserStorage) InsertUser(user *UserModel) (UserID, error) {
 func (s *SQLUserStorage) UpdateUser(id UserID, newCredentials *UserModel, fields []string) error {
 	dateJoined := s.Bridge.ConvertTime(newCredentials.DateJoined)
 	lastLogin := s.Bridge.ConvertTime(newCredentials.LastLogin)
-	// this generic implementation ignores fields, thus sets fields to nil
-	_, err := s.DB.Exec(s.Queries.UpdateUser(nil),
+	_, err := s.DB.Exec(s.Queries.UpdateUser(fields),
 		newCredentials.Username, newCredentials.Password, newCredentials.EMail,
 		newCredentials.FirstName, newCredentials.LastName, newCredentials.IsSuperUser,
 		newCredentials.IsStaff, newCredentials.IsActive,
