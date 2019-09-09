@@ -61,6 +61,7 @@ type UserModel struct {
 	LastLogin   time.Time
 }
 
+// Copy creates a copy of the user model and returns a new one with the same contens.
 func (u *UserModel) Copy() *UserModel {
 	res := &UserModel{}
 	res.ID = u.ID

@@ -14,19 +14,35 @@
 
 package gopherbouncedb
 
-import "time"
-
-type SessionID int64
-
-type SessionEntry struct {
-	ID SessionID
-	User UserID
-	Key string
-	ValidUntil time.Time
-}
+import (
+	"crypto/rand"
+	"time"
+	"io"
+	"encoding/base64"
+)
 
 const (
-	// InvalidSessionID is the id used when an ID is required but the id
-	// should be marked as invalid.
-	InvalidSessionID = SessionID(-1)
+	SessionKeyBytes = 29
 )
+
+func GenSessionKey() (string, error) {
+	randBytes := make([]byte, SessionKeyBytes)
+	if _, genErr := io.ReadFull(rand.Reader, randBytes); genErr != nil {
+		return "", genErr
+	}
+	return base64.RawURLEncoding.EncodeToString(randBytes), nil
+}
+
+type SessionEntry struct {
+	User UserID
+	Key string
+	ExpireDate time.Time
+}
+
+func (s *SessionEntry) Copy() *SessionEntry {
+	return &SessionEntry{
+		User: s.User,
+		Key: s.Key,
+		ExpireDate: s.ExpireDate,
+	}
+}

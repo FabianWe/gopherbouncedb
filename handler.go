@@ -21,13 +21,11 @@ import (
 
 // NoSuchUser is an error returned when the lookup of a user failed because
 // no entry for that user exists.
-type NoSuchUser struct {
-  Err string
-}
+type NoSuchUser string
 
 // NewNoSuchUser returns a new NoSuchUser given the cause.
 func NewNoSuchUser(message string) NoSuchUser {
-  return NoSuchUser{Err: message}
+  return NoSuchUser(message)
 }
 
 // NewNoSuchUserID returns a new NoSuchUser error with a given id.
@@ -47,39 +45,35 @@ func NewNoSuchUserMail(email string) NoSuchUser {
 
 // Error returns the error string.
 func (e NoSuchUser) Error() string {
-  return e.Err
+  return string(e)
 }
 
 // UserExists is an error returned when the creation of a user object failed
 // because a user with the given credentials already exists.
-type UserExists struct {
-  Err string
-}
+type UserExists string
 
 // NewUserExists returns a new NewUserExists given the cause.
 func NewUserExists(message string) UserExists {
-  return UserExists{Err: message}
+  return UserExists(message)
 }
 
 // Error returns the error string.
 func (e UserExists) Error() string {
-  return e.Err
+  return string(e)
 }
 
 // AmbiguousCredentials is an error returned when the update of an user would lead to an inconsistent database
 // state, such as email already in use.
-type AmbiguousCredentials struct {
-	Err string
-}
+type AmbiguousCredentials string
 
 // NewAmbiguousCredentials returns a new AmbiguousCredentials given the cause.
 func NewAmbiguousCredentials(message string) AmbiguousCredentials {
-	return AmbiguousCredentials{Err: message}
+	return AmbiguousCredentials(message)
 }
 
 // Error returns the error string.
 func (e AmbiguousCredentials) Error() string {
-	return e.Err
+	return string(e)
 }
 
 // NotSupported is the error returned when inserting / updating a user and getting
@@ -96,6 +90,45 @@ func NewNotSupported(initial error) NotSupported {
 // Error returns the error string.
 func (e NotSupported) Error() string {
 	return fmt.Sprintf("LastInsertID not supported by driver: %v", e.initial)
+}
+
+// SessionExists is the error returned if the insertion of a session failed because the
+// key already exists (should rarely happen).
+type SessionExists string
+
+// NewSessionExists returns a new SessionExists error given the message.
+func NewSessionExists(message string) SessionExists {
+	return SessionExists(message)
+}
+
+// NewSessionExistsKey returns a new SessionExists error given the key that already
+// existed in the datastore.
+func NewSessionExistsKey(key string) SessionExists {
+	return NewSessionExists(fmt.Sprintf("session with key %s already exists", key))
+}
+
+// Error returns the error message.
+func (e SessionExists) Error() string {
+	return string(e)
+}
+
+// NoSuchSession is the error returned if the lookup of a session failed because
+// such a session does not exist.
+type NoSuchSession string
+
+// NewNoSuchSession returns a new NoSuchSession error given the message.
+func NewNoSuchSession(message string) NoSuchSession {
+	return NoSuchSession(message)
+}
+
+// NewNoSuchSessionKey returns a new NoSuchSession error given the key that doesn't exist.
+func NewNoSuchSessionKey(key string) NoSuchSession {
+	return NewNoSuchSession(fmt.Sprintf("session with key %s does not exist", key))
+}
+
+// Error returns the error message.
+func (e NoSuchSession) Error() string {
+	return string(e)
 }
 
 // UserStorage provides methods to store, retrieve, update and delete users from
@@ -143,14 +176,33 @@ type UserStorage interface {
   DeleteUser(id UserID) error
 }
 
+// SessionStorage provides methods that are used to store and deal with auth session.
 type SessionStorage interface {
-	InitSesions() error
+	// InitSessions is called once to make sure all tables and indexes exist in the database.
+	InitSessions() error
+	// InsertSession inserts a new session to the datastore.
+	// If the session key already exists it should an error of type SessionExists.
 	InsertSession(session *SessionEntry) error
+	// GetSession returns the session with the given key.
+	// If no such session exists it should return an error of type NoSuchSession
 	GetSession(key string) (SessionEntry, error)
+	// DeleteSession deletes the session with the given key.
+	// If no such session exists this will not be considered an error.
+	DeleteSession(key string) error
+	// CleanUp should remove all entries that are not valid any more given the
+	// reference date.
+	// That is all sessions whose ExpireDate <= referenceDate.
+	// It returns the number of deletes entries.
+	// If the cleanup worked successfully but the driver doesn't support the number of
+	// affected entries it should return an error of type NotSupported.
 	CleanUp(referenceDate time.Time) (int64, error)
+	// DeleteForUser deletes all session for the given user id.
+	// It returns the number of deleted entries.
+	// If the delete worked successfully but the driver doesn't support the number of
+	// affected entries it should return an error of type NotSupported.
+	DeleteForUser(user UserID) (int64, error)
 }
 
-// InitUsers umbenennen sonst gehts kaputt
 type GoauthStorage interface {
 	UserStorage
 	SessionStorage
