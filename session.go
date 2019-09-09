@@ -72,6 +72,12 @@ func (s *SessionEntry) Copy() *SessionEntry {
 	}
 }
 
+// IsValid returns true iff the session is considered valid.
+// This function should be used to check if a session is valid.
+// One databases it's generally a good idea not to iterate over all session and test
+// whether it's still valid.
+// So the definition of a valid session is that the reference date is before the
+// ExpireDate of the session.
 func (s *SessionEntry) IsValid(referenceDate time.Time) bool {
 	return referenceDate.Before(s.ExpireDate)
 }
