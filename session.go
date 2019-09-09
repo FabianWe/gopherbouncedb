@@ -48,10 +48,10 @@ type SessionEntry struct {
 	ExpireDate time.Time
 }
 
-// NewSessionKey returns a new SessionEntry and creates automatically a new
+// NewSessionWithKey returns a new SessionEntry and creates automatically a new
 // session key.
 // If an error is returned the session should not be used.
-func NewSessionKey(user UserID, expireDate time.Time) (*SessionEntry, error) {
+func NewSessionWithKey(user UserID, expireDate time.Time) (*SessionEntry, error) {
 	key, keyErr := GenSessionKey()
 	if keyErr != nil {
 		return nil, keyErr
