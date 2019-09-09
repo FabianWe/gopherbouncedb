@@ -17,6 +17,7 @@ package gopherbouncedb
 import (
 	"fmt"
 	"time"
+	"strings"
 )
 
 // NoSuchUser is an error returned when the lookup of a user failed because
@@ -177,6 +178,13 @@ type UserStorage interface {
 }
 
 // SessionStorage provides methods that are used to store and deal with auth session.
+//
+// In general if a user gets deleted all the users' sessions should be deleted as well.
+// Since we have to different interfaces there is no direct way of adapting this.
+// However both storages interfaces are usually combined in a GoauthStorage,
+// this way you might be able to adept to this.
+// But it shouldn't be a big problem if a session for a non-existent user remains
+// in the store.
 type SessionStorage interface {
 	// InitSessions is called once to make sure all tables and indexes exist in the database.
 	InitSessions() error
@@ -203,12 +211,69 @@ type SessionStorage interface {
 	DeleteForUser(user UserID) (uint64, error)
 }
 
+// RetryInsertErr is returned if several inserts failed (usually with RetrySessionInsert)
+// and all generated keys were invalid. This should never happen in general.
+type RetryInsertErr []error
+
+// NewRetryInsertErr returns a new RetryInsertErr given the accumulated insert errors.
+func NewRetryInsertErr(errs []error) RetryInsertErr {
+	return RetryInsertErr(errs)
+}
+
+// Error returns the error message.
+func (e RetryInsertErr) Error() string {
+	var sb strings.Builder
+	sb.WriteString("failed to insert session, accumulated the following errors:")
+	for _, err := range e {
+		sb.WriteString("\n   ")
+		sb.WriteString(err.Error())
+	}
+	return sb.String()
+}
+
+// RetrySessionInsert tries to insert a session key multiple times.
+//
+// If a key insertion failed because the key already exists we can use this method
+// to create new keys and try the insert again.
+// A key collision should not usually fail, thus this is function only exists
+// as a precaution.
+//
+// This method will return all other errors (database connection failed etc.) directly
+// without retrying. If the insertion failed numTries times an error of type
+// RetryInsertErr is returned which contains all insertion errors.
+func RetrySessionInsert(storage SessionStorage, session *SessionEntry, numTries int) error {
+	var insertErr error
+	errs := make([]error, 0)
+	for i := 0; i < numTries; i++ {
+		insertErr = storage.InsertSession(session)
+		if insertErr == nil {
+			return nil
+		}
+		// now there was some kind of failure
+		if _, isSessionExists := insertErr.(SessionExists); isSessionExists {
+			// append the error to our collected errors
+			errs = append(errs, insertErr)
+			// retry now
+			// try to create a key
+			newKey, keyErr := GenSessionKey()
+			if keyErr != nil {
+				// if key creation failed we don't actually try to insert it
+				// again, we return this as a critical error
+				return keyErr
+			}
+			// now we set the new key and the update happens in the next loop
+			session.Key = newKey
+		} else {
+			// all other errors are returned directly
+			return insertErr
+		}
+	}
+	// we had several insert errs and couldn't insert a valid key
+	return NewRetryInsertErr(errs)
+}
+
 type GoauthStorage interface {
 	UserStorage
 	SessionStorage
 }
 
-type CombinedStorage struct {
-	UserStorage
-	SessionStorage
-}
