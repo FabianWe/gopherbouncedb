@@ -22,9 +22,14 @@ import (
 )
 
 const (
+	// SessionKeyBytes is the length of session random keys in bytes.
+	// Session keys are encoded in base64 which results in strings of length 39.
 	SessionKeyBytes = 29
 )
 
+// GenSessionKey returns a new cryptographically secure random key.
+// It uses 29 random bytes (as defined in SessionKeyBytes). The random bytes
+// are base64 encoded which results in strings of length 39.
 func GenSessionKey() (string, error) {
 	randBytes := make([]byte, SessionKeyBytes)
 	if _, genErr := io.ReadFull(rand.Reader, randBytes); genErr != nil {
@@ -33,16 +38,40 @@ func GenSessionKey() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(randBytes), nil
 }
 
+// SessionEntry is an entry for a session to be stored in a database.
+// It describes the user this session belongs to (by id) and a unique cryptographically
+// secure random key.
+// The ExpireDate describes how long the session is considered valid.
 type SessionEntry struct {
 	User UserID
 	Key string
 	ExpireDate time.Time
 }
 
+// NewSessionKey returns a new SessionEntry and creates automatically a new
+// session key.
+// If an error is returned the session should not be used.
+func NewSessionKey(user UserID, expireDate time.Time) (*SessionEntry, error) {
+	key, keyErr := GenSessionKey()
+	if keyErr != nil {
+		return nil, keyErr
+	}
+	return &SessionEntry{
+		User: user,
+		Key: key,
+		ExpireDate: expireDate,
+	}, nil
+}
+
+// SessionEntry returns a copy of another session entry.
 func (s *SessionEntry) Copy() *SessionEntry {
 	return &SessionEntry{
 		User: s.User,
 		Key: s.Key,
 		ExpireDate: s.ExpireDate,
 	}
+}
+
+func (s *SessionEntry) IsValid(referenceDate time.Time) bool {
+	return referenceDate.Before(s.ExpireDate)
 }

@@ -143,10 +143,84 @@ func (s *MemdummyUserStorage) DeleteUser(id UserID) error {
 	defer s.mutex.Unlock()
 	existing, has := s.idMapping[id]
 	if !has {
-		return NewNoSuchUser(fmt.Sprintf("user with id %d does not exist", id))
+		return nil
 	}
 	delete(s.nameMapping, existing.Username)
 	delete(s.mailMapping, existing.EMail)
 	delete(s.idMapping, id)
 	return nil
+}
+
+type MemdummySessionStorage struct {
+	mutex *sync.RWMutex
+	keyMapping map[string]*SessionEntry
+}
+
+func NewMemdummySessionStorage() *MemdummySessionStorage {
+	return &MemdummySessionStorage{
+		mutex: new(sync.RWMutex),
+		keyMapping: make(map[string]*SessionEntry),
+	}
+}
+
+func (s *MemdummySessionStorage) Clear() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.keyMapping = make(map[string]*SessionEntry)
+}
+
+func (s *MemdummySessionStorage) InitSessions() error {
+	return nil
+}
+
+func (s *MemdummySessionStorage) InsertSession(session *SessionEntry) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if _, exists := s.keyMapping[session.Key]; exists {
+		return NewSessionExistsKey(session.Key)
+	}
+	s.keyMapping[session.Key] = session.Copy()
+	return nil
+}
+
+func (s *MemdummySessionStorage) GetSession(key string) (*SessionEntry, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	if entry, has := s.keyMapping[key]; has {
+		return entry, nil
+	}
+	return nil, NewNoSuchSessionKey(key)
+}
+
+func (s *MemdummySessionStorage) DeleteSession(key string) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	delete(s.keyMapping, key)
+	return nil
+}
+
+func (s *MemdummySessionStorage) CleanUp(referenceDate time.Time) (uint64, error) {
+	var delCount uint64
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	for key, session := range s.keyMapping {
+		if !session.IsValid(referenceDate) {
+			delete(s.keyMapping, key)
+			delCount++
+		}
+	}
+	return delCount, nil
+}
+
+func (s *MemdummySessionStorage) DeleteForUser(user UserID) (uint64, error) {
+	var delCount uint64
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	for key, session := range s.keyMapping {
+		if session.User == user {
+			delete(s.keyMapping, key)
+			delCount++
+		}
+	}
+	return delCount, nil
 }

@@ -185,22 +185,22 @@ type SessionStorage interface {
 	InsertSession(session *SessionEntry) error
 	// GetSession returns the session with the given key.
 	// If no such session exists it should return an error of type NoSuchSession
-	GetSession(key string) (SessionEntry, error)
+	GetSession(key string) (*SessionEntry, error)
 	// DeleteSession deletes the session with the given key.
 	// If no such session exists this will not be considered an error.
 	DeleteSession(key string) error
 	// CleanUp should remove all entries that are not valid any more given the
 	// reference date.
-	// That is all sessions whose ExpireDate <= referenceDate.
+	// If a session is valid should be checked with SessionEntry.IsValid.
 	// It returns the number of deletes entries.
 	// If the cleanup worked successfully but the driver doesn't support the number of
 	// affected entries it should return an error of type NotSupported.
-	CleanUp(referenceDate time.Time) (int64, error)
+	CleanUp(referenceDate time.Time) (uint64, error)
 	// DeleteForUser deletes all session for the given user id.
 	// It returns the number of deleted entries.
 	// If the delete worked successfully but the driver doesn't support the number of
 	// affected entries it should return an error of type NotSupported.
-	DeleteForUser(user UserID) (int64, error)
+	DeleteForUser(user UserID) (uint64, error)
 }
 
 type GoauthStorage interface {
