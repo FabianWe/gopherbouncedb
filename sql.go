@@ -16,122 +16,29 @@ package gopherbouncedb
 
 import (
 	"database/sql"
-	"strings"
 	"fmt"
-	"time"
 	"reflect"
+	"strings"
+	"time"
 )
 
 var (
 	// DefaultUserRowNames matches the fields from UserModel (as strings)
 	// to the default name of a sql row.
 	DefaultUserRowNames = map[string]string{
-		"ID": "id",
-		"FirstName": "first_name",
-		"LastName": "last_name",
-		"Username": "username",
-		"EMail": "email",
-		"Password": "password",
-		"IsActive": "is_active",
+		"ID":          "id",
+		"FirstName":   "first_name",
+		"LastName":    "last_name",
+		"Username":    "username",
+		"EMail":       "email",
+		"Password":    "password",
+		"IsActive":    "is_active",
 		"IsSuperUser": "is_superuser",
-		"IsStaff": "is_staff",
-		"DateJoined": "date_joined",
-		"LastLogin": "last_login",
+		"IsStaff":     "is_staff",
+		"DateJoined":  "date_joined",
+		"LastLogin":   "last_login",
 	}
 )
-
-// UserSQL defines an interface for working with user queries in a sql database.
-//
-// It is used in the generic SQLStorage to retrieve database specific queries.
-// The queries may (and should) contain placeholders (not the queries returned by
-// your implementation, see the note below).
-// For example the table name might be changed, the default name for the user table
-// is "auth_user". To be more flexible this, the table name can be changed.
-// Thus the queries can contain a variable that gets replaced with the actual
-// table name. This meta variable has the form $SOME_NAME$.
-// The following variables are enabled by default:
-// "$USERS_TABLE_NAME$": Name of the users table. Defaults to "auth_user".
-// "$EMAIL_UNIQUE$": Specifies if the E-Mail should be unique.
-// By default it is set to the string "UNIQUE". But it can be replaced by an empty string
-// as well. This should be fine with most sql implementations.
-// If not you might write your own implementation that does something different and does
-// not use "$EMAIL_UNIQUE$".
-//
-// The replacement of the meta variables should only done once during the initialization.
-// A SQLTemplateReplacer is used to achieve this.
-//
-// Important note: The queries returned by this implementation are not allowed to contain
-// meta variables. A replacer is not run by default!
-// Instead you have to create the queries with placeholders once (for example as constants)
-// and then apply a replacer by yourself once to get rid of the placeholders.
-// Of course you don't need to use this feature, but it keeps your tables more dynamic
-// and allows more configuration.
-// As an example you might look at one of the implementations, for example the driver.
-// All queries exist as a const string with placeholders.
-// Then a replacer is run once and the implementation only returns those strings.
-// They also use other placeholders to be used for example with for dynamic update queries.
-// The replacement of the fields variables is then done directly in the UpdateUser query.
-type UserSQL interface {
-	// InitUsers returns a sequence of init actions.
-	// They're all run on one transaction and rolled-back if one fails.
-	// In this query als initialization should happen, usually something like
-	// "create table if not exists" (or creating an index).
-	InitUsers() []string
-	// GetUser is the query to return a user with a given id.
-	// It must select all fields from the user table in the following order:
-	// id, user name, password, email, first name, last name, is superuser,
-	// is staff, is active, date joined, last login.
-	//
-	// Exactly one element is passed to the query and that is the user id to look for.
-	GetUser() string
-	// GetUserByName does the same as GetUser but instead of an id gets a user name to
-	// look for.
-	GetUserByName() string
-	// GetUserByEmail does the same as GetUser but instead of an id gets an email to
-	// look for.
-	// If the email is not unique this might lead to errors.
-	GetUserByEmail() string
-	// InsertUser inserts a new user into the database.
-	//
-	// The arguments parsed into Execute are the same once (and in the same order)
-	// as in GetUser, except the id field (that is automatically generated).
-	InsertUser() string
-	// UpdateUser is used to update a user.
-	// The query might depend on the fields which we want to update.
-	// You don't have to support update by fields and just update all fields, even
-	// those not given in fields. Just make sure to implement this in the
-	// SupportsUserFields function.
-	//
-	// The sql implementation works as follows: If SupportsUserFields returns false
-	// UpdateUser is always called with nil, meaning all fields must be updated.
-	// If SupportsUserFields returns true then this function is called with the
-	// actual fields and the returned statement updates should only those fields.
-	//
-	// Concerning in the arguments: In case len(fields) == 0 the same order as in GetUser,
-	// except the id (this one can't be updated).
-	// If fields is given the order of the arguments are in the same order as the fields.
-	// The contents of fields are discussed in more detail in the documentation of the
-	// UserStorage interface.
-	// In all cases the id is passed as the last element.
-	// This is the argument used usually in the WHERE clause and defines the user to
-	// update by its id.
-	//
-	// A small example: If fields is nil: ... SET username=?, ... WHERE id=?.
-	// The arguments are given in the order username, ..., id.
-	//
-	// If fields is given for example as ["LastName", "EMail"]:
-	// ... SET last_name=?, email=? WHERE id=?.
-	// The arguments are given in the order last_name, email, id.
-	UpdateUser(fields []string) string
-	// SupportsUserFields returns true if UpdateUser has the additional fields update
-	// ability.
-	// It's totally okay to return false and always update all values.
-	// In this case UpdateUser always gets called with nil.
-	SupportsUserFields() bool
-	// DeleteUser removes a user from the database.
-	// It is given a single argument, the user id.
-	DeleteUser() string
-}
 
 // SQLTemplateReplacer is used to replace the meta variables in the queries of a UserSQL
 // implementation.
@@ -143,7 +50,7 @@ type UserSQL interface {
 //
 // That is: First set the content and then use Apply as you see fit.
 type SQLTemplateReplacer struct {
-	entries map[string]string
+	entries  map[string]string
 	replacer *strings.Replacer
 }
 
@@ -153,7 +60,7 @@ type SQLTemplateReplacer struct {
 // taking place.
 func NewSQLTemplateReplacer() *SQLTemplateReplacer {
 	res := &SQLTemplateReplacer{
-		entries: make(map[string]string),
+		entries:  make(map[string]string),
 		replacer: nil,
 	}
 	res.computeReplacer()
@@ -166,7 +73,7 @@ func DefaultSQLReplacer() *SQLTemplateReplacer {
 	res := NewSQLTemplateReplacer()
 	values := map[string]string{
 		"$USERS_TABLE_NAME$": "auth_user",
-		"$EMAIL_UNIQUE$": "UNIQUE",
+		"$EMAIL_UNIQUE$":     "UNIQUE",
 	}
 	res.UpdateDict(values)
 	return res
@@ -175,7 +82,7 @@ func DefaultSQLReplacer() *SQLTemplateReplacer {
 // computeReplacer computes the new strings.Replacer.
 // This method is called when the content is changed in some way.
 func (t *SQLTemplateReplacer) computeReplacer() {
-	values := make([]string, 0, 2 * len(t.entries))
+	values := make([]string, 0, 2*len(t.entries))
 	for key, value := range t.entries {
 		values = append(values, key, value)
 	}
@@ -202,7 +109,7 @@ func (t *SQLTemplateReplacer) Set(key, value string) {
 //
 // It panics if given an odd number of arguments
 func (t *SQLTemplateReplacer) SetMany(oldnew ...string) {
-	if len(oldnew) % 2 != 0 {
+	if len(oldnew)%2 != 0 {
 		panic("gopherbouncedb.SQLTemplateReplacer.SetKeys: odd argument count")
 	}
 	for i := 0; i < len(oldnew); i += 2 {
@@ -327,6 +234,99 @@ type SQLBridge interface {
 	ConvertTime(t time.Time) interface{}
 }
 
+// UserSQL defines an interface for working with user queries in a sql database.
+//
+// It is used in the generic SQLStorage to retrieve database specific queries.
+// The queries may (and should) contain placeholders (not the queries returned by
+// your implementation, see the note below).
+// For example the table name might be changed, the default name for the user table
+// is "auth_user". To be more flexible this, the table name can be changed.
+// Thus the queries can contain a variable that gets replaced with the actual
+// table name. This meta variable has the form $SOME_NAME$.
+// The following variables are enabled by default:
+// "$USERS_TABLE_NAME$": Name of the users table. Defaults to "auth_user".
+// "$EMAIL_UNIQUE$": Specifies if the E-Mail should be unique.
+// By default it is set to the string "UNIQUE". But it can be replaced by an empty string
+// as well. This should be fine with most sql implementations.
+// If not you might write your own implementation that does something different and does
+// not use "$EMAIL_UNIQUE$".
+//
+// The replacement of the meta variables should only done once during the initialization.
+// A SQLTemplateReplacer is used to achieve this.
+//
+// Important note: The queries returned by this implementation are not allowed to contain
+// meta variables. A replacer is not run by default!
+// Instead you have to create the queries with placeholders once (for example as constants)
+// and then apply a replacer by yourself once to get rid of the placeholders.
+// Of course you don't need to use this feature, but it keeps your tables more dynamic
+// and allows more configuration.
+// As an example you might look at one of the implementations, for example the driver.
+// All queries exist as a const string with placeholders.
+// Then a replacer is run once and the implementation only returns those strings.
+// They also use other placeholders to be used for example with for dynamic update queries.
+// The replacement of the fields variables is then done directly in the UpdateUser query.
+type UserSQL interface {
+	// InitUsers returns a sequence of init actions.
+	// They're all run on one transaction and rolled-back if one fails.
+	// In this query als initialization should happen, usually something like
+	// "create table if not exists" (or creating an index).
+	InitUsers() []string
+	// GetUser is the query to return a user with a given id.
+	// It must select all fields from the user table in the following order:
+	// id, user name, password, email, first name, last name, is superuser,
+	// is staff, is active, date joined, last login.
+	//
+	// Exactly one element is passed to the query and that is the user id to look for.
+	GetUser() string
+	// GetUserByName does the same as GetUser but instead of an id gets a user name to
+	// look for.
+	GetUserByName() string
+	// GetUserByEmail does the same as GetUser but instead of an id gets an email to
+	// look for.
+	// If the email is not unique this might lead to errors.
+	GetUserByEmail() string
+	// InsertUser inserts a new user into the database.
+	//
+	// The arguments parsed into Execute are the same once (and in the same order)
+	// as in GetUser, except the id field (that is automatically generated).
+	InsertUser() string
+	// UpdateUser is used to update a user.
+	// The query might depend on the fields which we want to update.
+	// You don't have to support update by fields and just update all fields, even
+	// those not given in fields. Just make sure to implement this in the
+	// SupportsUserFields function.
+	//
+	// The sql implementation works as follows: If SupportsUserFields returns false
+	// UpdateUser is always called with nil, meaning all fields must be updated.
+	// If SupportsUserFields returns true then this function is called with the
+	// actual fields and the returned statement updates should only those fields.
+	//
+	// Concerning in the arguments: In case len(fields) == 0 the same order as in GetUser,
+	// except the id (this one can't be updated).
+	// If fields is given the order of the arguments are in the same order as the fields.
+	// The contents of fields are discussed in more detail in the documentation of the
+	// UserStorage interface.
+	// In all cases the id is passed as the last element.
+	// This is the argument used usually in the WHERE clause and defines the user to
+	// update by its id.
+	//
+	// A small example: If fields is nil: ... SET username=?, ... WHERE id=?.
+	// The arguments are given in the order username, ..., id.
+	//
+	// If fields is given for example as ["LastName", "EMail"]:
+	// ... SET last_name=?, email=? WHERE id=?.
+	// The arguments are given in the order last_name, email, id.
+	UpdateUser(fields []string) string
+	// SupportsUserFields returns true if UpdateUser has the additional fields update
+	// ability.
+	// It's totally okay to return false and always update all values.
+	// In this case UpdateUser always gets called with nil.
+	SupportsUserFields() bool
+	// DeleteUser removes a user from the database.
+	// It is given a single argument, the user id.
+	DeleteUser() string
+}
+
 // SQLUserStorage implements UserStorage by working with database/sql.
 //
 // It does not rely on a specific driver and no driver is imported; it only uses
@@ -336,9 +336,9 @@ type SQLBridge interface {
 // must be implemented: The queries to be used of type UserSQL and the database bridge
 // of type SQLBridge.
 type SQLUserStorage struct {
-	DB *sql.DB
+	DB      *sql.DB
 	Queries UserSQL
-	Bridge SQLBridge
+	Bridge  SQLBridge
 }
 
 // NewSQLUserStorage returns a new SQLUserStorage.
@@ -544,4 +544,13 @@ func (s *SQLUserStorage) UpdateUser(id UserID, newCredentials *UserModel, fields
 func (s *SQLUserStorage) DeleteUser(id UserID) error {
 	_, err := s.DB.Exec(s.Queries.DeleteUser(), id)
 	return err
+}
+
+type SessionSQL interface {
+	InitSessions() []string
+	GetSession() string
+	InsertSession() string
+	DeleteSession() string
+	CleanUpSession() string
+	DeleteForUserSession() string
 }
