@@ -43,7 +43,7 @@ var (
 	// to the default name of a sql row.
 	DefaultSessionRowNames = map[string]string{
 		"User": "user",
-		"Key": "key",
+		"Key": "session_key",
 		"ExpireDate": "expire_date",
 	}
 )
