@@ -203,12 +203,12 @@ type SessionStorage interface {
 	// It returns the number of deletes entries.
 	// If the cleanup worked successfully but the driver doesn't support the number of
 	// affected entries it should return an error of type NotSupported.
-	CleanUp(referenceDate time.Time) (uint64, error)
+	CleanUp(referenceDate time.Time) (int64, error)
 	// DeleteForUser deletes all session for the given user id.
 	// It returns the number of deleted entries.
 	// If the delete worked successfully but the driver doesn't support the number of
 	// affected entries it should return an error of type NotSupported.
-	DeleteForUser(user UserID) (uint64, error)
+	DeleteForUser(user UserID) (int64, error)
 }
 
 // RetryInsertErr is returned if several inserts failed (usually with RetrySessionInsert)

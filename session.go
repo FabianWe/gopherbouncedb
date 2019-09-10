@@ -43,8 +43,8 @@ func GenSessionKey() (string, error) {
 // secure random key.
 // The ExpireDate describes how long the session is considered valid.
 type SessionEntry struct {
-	User UserID
 	Key string
+	User UserID
 	ExpireDate time.Time
 }
 
@@ -66,8 +66,8 @@ func NewSessionWithKey(user UserID, expireDate time.Time) (*SessionEntry, error)
 // SessionEntry returns a copy of another session entry.
 func (s *SessionEntry) Copy() *SessionEntry {
 	return &SessionEntry{
-		User: s.User,
 		Key: s.Key,
+		User: s.User,
 		ExpireDate: s.ExpireDate,
 	}
 }

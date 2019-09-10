@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	// DefaultUserRowNames matches the fields from UserModel (as strings)
+	// DefaultUserRowNames maps the fields from UserModel (as strings)
 	// to the default name of a sql row.
 	DefaultUserRowNames = map[string]string{
 		"ID":          "id",
@@ -37,6 +37,14 @@ var (
 		"IsStaff":     "is_staff",
 		"DateJoined":  "date_joined",
 		"LastLogin":   "last_login",
+	}
+
+	// DefaultSessionRowNames maps the fields from SessionEntry (as strings)
+	// to the default name of a sql row.
+	DefaultSessionRowNames = map[string]string{
+		"User": "user",
+		"Key": "key",
+		"ExpireDate": "expire_date",
 	}
 )
 
@@ -336,33 +344,35 @@ type UserSQL interface {
 // must be implemented: The queries to be used of type UserSQL and the database bridge
 // of type SQLBridge.
 type SQLUserStorage struct {
-	DB      *sql.DB
-	Queries UserSQL
-	Bridge  SQLBridge
+	UserDB      *sql.DB
+	UserQueries UserSQL
+	UserBridge  SQLBridge
 }
 
 // NewSQLUserStorage returns a new SQLUserStorage.
 func NewSQLUserStorage(db *sql.DB, queries UserSQL, bridge SQLBridge) *SQLUserStorage {
-	return &SQLUserStorage{DB: db, Queries: queries, Bridge: bridge}
+	return &SQLUserStorage{UserDB: db, UserQueries: queries, UserBridge: bridge}
 }
 
 // InitUsers executes all init queries in a single transaction.
 func (s *SQLUserStorage) InitUsers() error {
-	tx, err := s.DB.Begin()
+	tx, err := s.UserDB.Begin()
 	if err != nil {
 		return err
 	}
-	// save all exec errors in a variable, return later with rollback
+	// save exec error in a variable, return later with rollback
 	var execErr error
-	for _, initQuery := range s.Queries.InitUsers() {
+	for _, initQuery := range s.UserQueries.InitUsers() {
 		// execute only non-empty statements
 		// we'll do a rollback and return that error later
-		if initQuery != "" {
-			if _, err := tx.Exec(initQuery); err != nil {
-				execErr = err
-				break
-			}
+		if initQuery == "" {
+			continue
 		}
+		if _, err := tx.Exec(initQuery); err != nil {
+			execErr = err
+			break
+		}
+
 	}
 	if execErr != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
@@ -372,7 +382,7 @@ func (s *SQLUserStorage) InitUsers() error {
 	}
 	// commit
 	if commitErr := tx.Commit(); commitErr != nil {
-		return fmt.Errorf("commit in database init failed: %s", commitErr.Error())
+		return fmt.Errorf("commit in database init failed: %w", commitErr)
 	}
 	return nil
 }
@@ -382,7 +392,7 @@ func (s *SQLUserStorage) scanUser(row *sql.Row, noUser func() error) (*UserModel
 	var username, password, email, firstName, lastName string
 	var isSuperuser, isStaff, isActive bool
 	var dateJoined, lastLogin interface{}
-	dateJoined, lastLogin = s.Bridge.TimeScanType(), s.Bridge.TimeScanType()
+	dateJoined, lastLogin = s.UserBridge.TimeScanType(), s.UserBridge.TimeScanType()
 	scanErr := row.Scan(&userId, &username, &password, &email,
 		&firstName, &lastName, &isSuperuser, &isStaff,
 		&isActive, dateJoined, lastLogin)
@@ -402,13 +412,13 @@ func (s *SQLUserStorage) scanUser(row *sql.Row, noUser func() error) (*UserModel
 	user.IsActive = isActive
 	user.IsSuperUser = isSuperuser
 	user.IsStaff = isStaff
-	if dj, djErr := s.Bridge.ConvertTimeScanType(dateJoined); djErr != nil {
+	if dj, djErr := s.UserBridge.ConvertTimeScanType(dateJoined); djErr != nil {
 		return nil, djErr
 	} else {
 		dj = dj.UTC()
 		user.DateJoined = dj
 	}
-	if ll, llErr := s.Bridge.ConvertTimeScanType(lastLogin); llErr != nil {
+	if ll, llErr := s.UserBridge.ConvertTimeScanType(lastLogin); llErr != nil {
 		return nil, llErr
 	} else {
 		ll = ll.UTC()
@@ -418,7 +428,7 @@ func (s *SQLUserStorage) scanUser(row *sql.Row, noUser func() error) (*UserModel
 }
 
 func (s *SQLUserStorage) GetUser(id UserID) (*UserModel, error) {
-	row := s.DB.QueryRow(s.Queries.GetUser(), id)
+	row := s.UserDB.QueryRow(s.UserQueries.GetUser(), id)
 	notExists := func() error {
 		return NewNoSuchUserID(id)
 	}
@@ -426,7 +436,7 @@ func (s *SQLUserStorage) GetUser(id UserID) (*UserModel, error) {
 }
 
 func (s *SQLUserStorage) GetUserByName(username string) (*UserModel, error) {
-	row := s.DB.QueryRow(s.Queries.GetUserByName(), username)
+	row := s.UserDB.QueryRow(s.UserQueries.GetUserByName(), username)
 	notExists := func() error {
 		return NewNoSuchUserUsername(username)
 	}
@@ -434,7 +444,7 @@ func (s *SQLUserStorage) GetUserByName(username string) (*UserModel, error) {
 }
 
 func (s *SQLUserStorage) GetUserByEmail(email string) (*UserModel, error) {
-	row := s.DB.QueryRow(s.Queries.GetUserByEmail(), email)
+	row := s.UserDB.QueryRow(s.UserQueries.GetUserByEmail(), email)
 	notExists := func() error {
 		return NewNoSuchUserMail(email)
 	}
@@ -447,17 +457,17 @@ func (s *SQLUserStorage) InsertUser(user *UserModel) (UserID, error) {
 	var zeroTime time.Time
 	zeroTime = zeroTime.UTC()
 	// use the bridge conversion for time
-	dateJoined := s.Bridge.ConvertTime(now)
-	lastLogin := s.Bridge.ConvertTime(zeroTime)
+	dateJoined := s.UserBridge.ConvertTime(now)
+	lastLogin := s.UserBridge.ConvertTime(zeroTime)
 	user.DateJoined = now
 	user.LastLogin = zeroTime
-	r, err := s.DB.Exec(s.Queries.InsertUser(),
+	r, err := s.UserDB.Exec(s.UserQueries.InsertUser(),
 		user.Username, user.Password, user.EMail, user.FirstName,
 		user.LastName, user.IsSuperUser, user.IsStaff,
 		user.IsActive, dateJoined, lastLogin)
 	if err != nil {
 		user.ID = InvalidUserID
-		if s.Bridge.IsDuplicateInsert(err) {
+		if s.UserBridge.IsDuplicateInsert(err) {
 			return InvalidUserID,
 				NewUserExists(fmt.Sprintf("unique constraint failed: %s", err.Error()))
 		}
@@ -475,8 +485,8 @@ func (s *SQLUserStorage) InsertUser(user *UserModel) (UserID, error) {
 func (s *SQLUserStorage) prepareUpdateArgs(id UserID, u *UserModel, fields []string) ([]interface{}, error) {
 	var res []interface{}
 	if len(fields) == 0 {
-		dateJoined := s.Bridge.ConvertTime(u.DateJoined.UTC())
-		lastLogin := s.Bridge.ConvertTime(u.LastLogin.UTC())
+		dateJoined := s.UserBridge.ConvertTime(u.DateJoined.UTC())
+		lastLogin := s.UserBridge.ConvertTime(u.LastLogin.UTC())
 		res = []interface{}{
 			u.Username, u.Password, u.EMail, u.FirstName, u.LastName, u.IsSuperUser,
 			u.IsStaff, u.IsActive, dateJoined, lastLogin,
@@ -489,7 +499,7 @@ func (s *SQLUserStorage) prepareUpdateArgs(id UserID, u *UserModel, fields []str
 				fieldName = strings.ToLower(fieldName)
 				if fieldName == "datejoined" || fieldName == "lastlogin" {
 					if t, isTime := arg.(time.Time); isTime {
-						arg = s.Bridge.ConvertTime(t.UTC())
+						arg = s.UserBridge.ConvertTime(t.UTC())
 					} else {
 						return nil,
 							fmt.Errorf("DateJoined / LastLogin must be time.Time, got type %v", reflect.TypeOf(arg))
@@ -520,20 +530,20 @@ func (s *SQLUserStorage) UpdateUser(id UserID, newCredentials *UserModel, fields
 	var stmt string
 	var args []interface{}
 	var argsErr error
-	if s.Queries.SupportsUserFields() {
-		stmt = s.Queries.UpdateUser(fields)
+	if s.UserQueries.SupportsUserFields() {
+		stmt = s.UserQueries.UpdateUser(fields)
 		args, argsErr = s.prepareUpdateArgs(id, newCredentials, fields)
 	} else {
-		stmt = s.Queries.UpdateUser(nil)
+		stmt = s.UserQueries.UpdateUser(nil)
 		args, argsErr = s.prepareUpdateArgs(id, newCredentials, nil)
 	}
 	if argsErr != nil {
 		return fmt.Errorf("can't prepare user update arguments: %s", argsErr.Error())
 	}
 
-	_, err := s.DB.Exec(stmt, args...)
+	_, err := s.UserDB.Exec(stmt, args...)
 	if err != nil {
-		if s.Bridge.IsDuplicateUpdate(err) {
+		if s.UserBridge.IsDuplicateUpdate(err) {
 			return NewAmbiguousCredentials(fmt.Sprintf("unique constraint failed: %s", err.Error()))
 		}
 		return err
@@ -542,7 +552,7 @@ func (s *SQLUserStorage) UpdateUser(id UserID, newCredentials *UserModel, fields
 }
 
 func (s *SQLUserStorage) DeleteUser(id UserID) error {
-	_, err := s.DB.Exec(s.Queries.DeleteUser(), id)
+	_, err := s.UserDB.Exec(s.UserQueries.DeleteUser(), id)
 	return err
 }
 
@@ -553,4 +563,116 @@ type SessionSQL interface {
 	DeleteSession() string
 	CleanUpSession() string
 	DeleteForUserSession() string
+}
+
+type SQLSessionStorage struct {
+	SessionDB *sql.DB
+	SessionQueries SessionSQL
+	SessionBridge SQLBridge
+}
+
+func NewSQLSessionStorage(db *sql.DB, queries SessionSQL, bridge SQLBridge) *SQLSessionStorage {
+	return &SQLSessionStorage{
+		SessionDB: db,
+		SessionQueries: queries,
+		SessionBridge: bridge,
+	}
+}
+
+
+func (s *SQLSessionStorage) InitSessions() error {
+	tx, err := s.SessionDB.Begin()
+	if err != nil {
+		return err
+	}
+	// save exec error
+	var execErr error
+	for _, initQuery := range s.SessionQueries.InitSessions() {
+		// execute only non-empty statements
+		if initQuery == "" {
+			continue
+		}
+		if _, err := tx.Exec(initQuery); err != nil {
+			execErr = err
+			break
+		}
+	}
+	if execErr != nil {
+		if rollBackErr := tx.Rollback(); rollBackErr != nil {
+			return NewRollbackErr(execErr, rollBackErr)
+		}
+		return execErr
+	}
+	// commit
+	if commitErr := tx.Commit(); commitErr != nil {
+		return fmt.Errorf("commit in database init failed: %w", commitErr)
+	}
+	return nil
+}
+
+func (s *SQLSessionStorage) InsertSession(session *SessionEntry) error {
+	expireDate := s.SessionBridge.ConvertTime(session.ExpireDate)
+	_, err := s.SessionDB.Exec(s.SessionQueries.InsertSession(),
+		session.Key, session.User, expireDate)
+	if err != nil {
+		if s.SessionBridge.IsDuplicateUpdate(err) {
+			return NewSessionExistsKey(session.Key)
+		}
+		return err
+	}
+	return nil
+}
+
+func (s *SQLSessionStorage) GetSession(key string) (*SessionEntry, error) {
+	row := s.SessionDB.QueryRow(s.SessionQueries.GetSession(), key)
+	var k string
+	var user UserID
+	expireDate := s.SessionBridge.TimeScanType()
+	scanErr := row.Scan(&k, &user, expireDate)
+	switch {
+	case scanErr == sql.ErrNoRows:
+		return nil, NewNoSuchSessionKey(key)
+	case scanErr != nil:
+		return nil, scanErr
+	}
+	var result SessionEntry
+	result.Key = k
+	result.User = user
+	if ed, edErr := s.SessionBridge.ConvertTimeScanType(expireDate); edErr != nil {
+		return nil, edErr
+	} else {
+		ed = ed.UTC()
+		result.ExpireDate = ed
+	}
+	return &result, nil
+}
+
+func (s *SQLSessionStorage) DeleteSession(key string) error {
+	_, err := s.SessionDB.Exec(s.SessionQueries.DeleteSession(), key)
+	return err
+}
+
+func (s *SQLSessionStorage) CleanUp(referenceDate time.Time) (int64, error) {
+	t := s.SessionBridge.ConvertTime(referenceDate)
+	r, err := s.SessionDB.Exec(s.SessionQueries.CleanUpSession(), t)
+	if err != nil {
+		return 0, err
+	}
+	rowsAffected, affectedErr := r.RowsAffected()
+	if affectedErr != nil {
+		return rowsAffected, NewNotSupported(affectedErr)
+	}
+	return rowsAffected, nil
+}
+
+func (s *SQLSessionStorage) DeleteForUser(user UserID) (int64, error) {
+	r, err := s.SessionDB.Exec(s.SessionQueries.DeleteForUserSession(), user)
+	if err != nil {
+		return 0, err
+	}
+	rowsAffected, affectedErr := r.RowsAffected()
+	if affectedErr != nil {
+		return rowsAffected, NewNotSupported(affectedErr)
+	}
+	return rowsAffected, nil
 }

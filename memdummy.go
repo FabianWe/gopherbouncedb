@@ -199,8 +199,8 @@ func (s *MemdummySessionStorage) DeleteSession(key string) error {
 	return nil
 }
 
-func (s *MemdummySessionStorage) CleanUp(referenceDate time.Time) (uint64, error) {
-	var delCount uint64
+func (s *MemdummySessionStorage) CleanUp(referenceDate time.Time) (int64, error) {
+	var delCount int64
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	for key, session := range s.keyMapping {
@@ -212,8 +212,8 @@ func (s *MemdummySessionStorage) CleanUp(referenceDate time.Time) (uint64, error
 	return delCount, nil
 }
 
-func (s *MemdummySessionStorage) DeleteForUser(user UserID) (uint64, error) {
-	var delCount uint64
+func (s *MemdummySessionStorage) DeleteForUser(user UserID) (int64, error) {
+	var delCount int64
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	for key, session := range s.keyMapping {
