@@ -19,32 +19,66 @@ import (
 	"github.com/FabianWe/gopherbouncedb"
 )
 
-type memdummyTestBinding struct {}
+type memdummyUserTestBinding struct {}
 
-func (b memdummyTestBinding) BeginInstance() gopherbouncedb.UserStorage {
+func (b memdummyUserTestBinding) BeginInstance() gopherbouncedb.UserStorage {
 	return gopherbouncedb.NewMemdummyUserStorage()
 }
 
-func (b memdummyTestBinding) ClosteInstance(s gopherbouncedb.UserStorage) {
+func (b memdummyUserTestBinding) CloseInstance(s gopherbouncedb.UserStorage) {
 
 }
 
 func TestInitMemdummy(t *testing.T) {
-	TestInitSuite(memdummyTestBinding{}, t)
+	TestInitSuite(memdummyUserTestBinding{}, t)
 }
 
 func TestInsertMemdummy(t *testing.T) {
-	TestInsertSuite(memdummyTestBinding{}, true, t)
+	TestInsertSuite(memdummyUserTestBinding{}, true, t)
 }
 
 func TestMemdummyLookup(t *testing.T) {
-	TestLookupSuite(memdummyTestBinding{}, true, t)
+	TestLookupSuite(memdummyUserTestBinding{}, true, t)
 }
 
 func TestMemdummyUpdate(t *testing.T) {
-	TestUpdateUserSuite(memdummyTestBinding{}, true, t)
+	TestUpdateUserSuite(memdummyUserTestBinding{}, true, t)
 }
 
 func TestMemdummyDelete(t *testing.T) {
-	TestDeleteUserSuite(memdummyTestBinding{}, true, t)
+	TestDeleteUserSuite(memdummyUserTestBinding{}, true, t)
+}
+
+type memdummySessionTestBinding struct{}
+
+func (b memdummySessionTestBinding) BeginInstance() gopherbouncedb.SessionStorage {
+	return gopherbouncedb.NewMemdummySessionStorage()
+}
+
+func (b memdummySessionTestBinding) CloseInstance(s gopherbouncedb.SessionStorage) {
+
+}
+
+func TestInitSessionMemdummy(t *testing.T) {
+	TestInitSessionSuite(memdummySessionTestBinding{}, t)
+}
+
+func TestInsertSessionMemdummy(t *testing.T) {
+	TestSessionInsert(memdummySessionTestBinding{}, t)
+}
+
+func TestGetSessionMemdummy(t *testing.T) {
+	TestSessionGet(memdummySessionTestBinding{}, t)
+}
+
+func TestDeleteSessionMemdummy(t *testing.T) {
+	TestSessionDelete(memdummySessionTestBinding{}, t)
+}
+
+func TestCleanUpSessionMemdummy(t *testing.T) {
+	TestSessionClear(memdummySessionTestBinding{}, t)
+}
+
+func TestDeleteForUserMemdummy(t *testing.T) {
+	TestSessionDeleteForUser(memdummySessionTestBinding{}, t)
 }

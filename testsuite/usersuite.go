@@ -23,7 +23,7 @@ import (
 
 type UserTestSuiteBinding interface {
 	BeginInstance() gopherbouncedb.UserStorage
-	ClosteInstance(s gopherbouncedb.UserStorage)
+	CloseInstance(s gopherbouncedb.UserStorage)
 }
 
 var (
@@ -66,7 +66,7 @@ func restoreDefaults() {
 	u5.Username = "user5"
 	u5.EMail = "user3@something.org"
 
-	users = append(users, u1, u2, u3,u4, u5)
+	users = []*gopherbouncedb.UserModel{u1, u2, u3, u4, u5}
 }
 
 func getInsertOK() []*gopherbouncedb.UserModel {
@@ -84,7 +84,7 @@ func getFailEmail() []*gopherbouncedb.UserModel {
 func TestInitSuite(suite UserTestSuiteBinding, t *testing.T) {
 	restoreDefaults()
 	inst := suite.BeginInstance()
-	defer suite.ClosteInstance(inst)
+	defer suite.CloseInstance(inst)
 	initErr := inst.InitUsers()
 	if initErr != nil {
 		t.Error("Init failed:", initErr)
@@ -113,7 +113,7 @@ func insertSuccess(inst gopherbouncedb.UserStorage, t *testing.T) {
 func TestInsertSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing.T) {
 	restoreDefaults()
 	inst := suite.BeginInstance()
-	defer suite.ClosteInstance(inst)
+	defer suite.CloseInstance(inst)
 	initErr := inst.InitUsers()
 	if initErr != nil {
 		t.Fatal("Init failed:", initErr)
@@ -228,7 +228,7 @@ func doLookupTests(inst gopherbouncedb.UserStorage, mailUnique bool, checks []*g
 func TestLookupSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing.T) {
 	restoreDefaults()
 	inst := suite.BeginInstance()
-	defer suite.ClosteInstance(inst)
+	defer suite.CloseInstance(inst)
 	initErr := inst.InitUsers()
 	if initErr != nil {
 		t.Fatal("Init failed:", initErr)
@@ -272,7 +272,7 @@ func TestLookupSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing.T) 
 func TestUpdateUserSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing.T) {
 	restoreDefaults()
 	inst := suite.BeginInstance()
-	defer suite.ClosteInstance(inst)
+	defer suite.CloseInstance(inst)
 	initErr := inst.InitUsers()
 	if initErr != nil {
 		t.Fatal("Init failed:", initErr)
@@ -319,7 +319,7 @@ func TestUpdateUserSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing
 func TestDeleteUserSuite(suite UserTestSuiteBinding, mailUnique bool, t *testing.T) {
 	restoreDefaults()
 	inst := suite.BeginInstance()
-	defer suite.ClosteInstance(inst)
+	defer suite.CloseInstance(inst)
 	initErr := inst.InitUsers()
 	if initErr != nil {
 		t.Fatal("Init failed:", initErr)

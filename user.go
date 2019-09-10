@@ -15,9 +15,9 @@
 package gopherbouncedb
 
 import (
-  "time"
-	"strings"
 	"fmt"
+	"strings"
+	"time"
 )
 
 // UserID is the id of a user stored in a database.
@@ -48,7 +48,7 @@ type UserID int64
 // The database implementations don't check that automatically, but the convenient
 // wrappers I'm trying to implement will.
 type UserModel struct {
-  	ID UserID
+	ID          UserID
 	FirstName   string
 	LastName    string
 	Username    string
@@ -114,7 +114,7 @@ func (u *UserModel) GetFieldByName(name string) (val interface{}, err error) {
 }
 
 const (
-  // InvalidUserID is used when a user id is required but no user with the
-  // given credentials was found.
-  InvalidUserID = UserID(-1)
+	// InvalidUserID is used when a user id is required but no user with the
+	// given credentials was found.
+	InvalidUserID = UserID(-1)
 )
