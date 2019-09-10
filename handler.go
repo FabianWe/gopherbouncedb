@@ -272,6 +272,7 @@ func RetrySessionInsert(storage SessionStorage, session *SessionEntry, numTries 
 	return NewRetryInsertErr(errs)
 }
 
+// GoauthStorage combines a user storage and a session storage.
 type GoauthStorage interface {
 	UserStorage
 	SessionStorage
