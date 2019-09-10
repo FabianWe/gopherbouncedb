@@ -78,6 +78,9 @@ func (s *SessionEntry) Copy() *SessionEntry {
 // whether it's still valid.
 // So the definition of a valid session is that the reference date is before the
 // ExpireDate of the session.
+// Note: Thus if expireDate == referenceDate the sessionis considered invalid.
+// But I think that should be okay, if we're in this range were it makes a difference
+// it should not matter.
 func (s *SessionEntry) IsValid(referenceDate time.Time) bool {
 	return referenceDate.Before(s.ExpireDate)
 }

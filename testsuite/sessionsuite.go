@@ -101,6 +101,10 @@ func TestSessionInsert(suite SessionTestSuiteBinding, t *testing.T) {
 	restoreDefaultsSession()
 	inst := suite.BeginInstance()
 	defer suite.CloseInstance(inst)
+	initErr := inst.InitSessions()
+	if initErr != nil {
+		t.Fatal("Init failed:", initErr)
+	}
 	insertSessionsOkay(inst, t)
 	// test that multiple inserts yield an error
 	for _, s := range getSessionsOkay() {
@@ -125,6 +129,10 @@ func TestSessionGet(suite SessionTestSuiteBinding, t *testing.T) {
 	restoreDefaultsSession()
 	inst := suite.BeginInstance()
 	defer suite.CloseInstance(inst)
+	initErr := inst.InitSessions()
+	if initErr != nil {
+		t.Fatal("Init failed:", initErr)
+	}
 	insertSessionsOkay(inst, t)
 	// now get all three elements
 	for _, s := range getSessionsOkay() {
@@ -160,6 +168,10 @@ func TestSessionDelete(suite SessionTestSuiteBinding, t *testing.T) {
 	restoreDefaultsSession()
 	inst := suite.BeginInstance()
 	defer suite.CloseInstance(inst)
+	initErr := inst.InitSessions()
+	if initErr != nil {
+		t.Fatal("Init failed:", initErr)
+	}
 	insertSessionsOkay(inst, t)
 	deletes := []*gopherbouncedb.SessionEntry{sessions[0], sessions[1]}
 	for _, ds := range deletes {
@@ -190,10 +202,14 @@ func TestSessionDelete(suite SessionTestSuiteBinding, t *testing.T) {
 	}
 }
 
-func TestSessionClear(suite SessionTestSuiteBinding, t *testing.T) {
+func TestSessionCleanUp(suite SessionTestSuiteBinding, t *testing.T) {
 	restoreDefaultsSession()
 	inst := suite.BeginInstance()
 	defer suite.CloseInstance(inst)
+	initErr := inst.InitSessions()
+	if initErr != nil {
+		t.Fatal("Init failed:", initErr)
+	}
 	insertSessionsOkay(inst, t)
 	refDate := parseTime("11-09-2019")
 	numDel, cleanErr := inst.CleanUp(refDate)
@@ -210,6 +226,10 @@ func TestSessionDeleteForUser(suite SessionTestSuiteBinding, t *testing.T) {
 	restoreDefaultsSession()
 	inst := suite.BeginInstance()
 	defer suite.CloseInstance(inst)
+	initErr := inst.InitSessions()
+	if initErr != nil {
+		t.Fatal("Init failed:", initErr)
+	}
 	insertSessionsOkay(inst, t)
 	numDel, delErr := inst.DeleteForUser(1)
 	if delErr != nil {

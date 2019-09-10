@@ -76,7 +76,7 @@ func TestDeleteSessionMemdummy(t *testing.T) {
 }
 
 func TestCleanUpSessionMemdummy(t *testing.T) {
-	TestSessionClear(memdummySessionTestBinding{}, t)
+	TestSessionCleanUp(memdummySessionTestBinding{}, t)
 }
 
 func TestDeleteForUserMemdummy(t *testing.T) {
