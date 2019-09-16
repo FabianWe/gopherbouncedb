@@ -16,10 +16,12 @@ package testsuite
 
 import (
 	"github.com/FabianWe/gopherbouncedb"
-	"testing"
 	"reflect"
+	"testing"
 	"time"
 )
+
+// TODO test ListUsers
 
 type UserTestSuiteBinding interface {
 	BeginInstance() gopherbouncedb.UserStorage

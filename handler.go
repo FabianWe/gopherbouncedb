@@ -16,8 +16,8 @@ package gopherbouncedb
 
 import (
 	"fmt"
-	"time"
 	"strings"
+	"time"
 )
 
 // NoSuchUser is an error returned when the lookup of a user failed because
@@ -132,6 +132,16 @@ func (e NoSuchSession) Error() string {
 	return string(e)
 }
 
+// UserIterator is a type used to iterate over user entries.
+//
+// This might not be the best go-ish way, but it should do.
+// The contract for using a user iterator is as follows:
+//
+// If the iterator is retrieved without an error the Close() method of the iterator must be called
+// (usually as a deferred function call).
+// Before accessing an element with Next(), HasNext() must be called.
+// Finally, a call to Err must be made in order to test if the iteration ended regularly or if there
+// was an error.
 type UserIterator interface {
 	HasNext() bool
 	Next() (*UserModel, error)
@@ -139,7 +149,24 @@ type UserIterator interface {
 	Close() error
 }
 
-// TODO add iterator method
+// AsUsersSlice takes a not-closed iterator an returns all elements as a slice.
+// If some error happens it returns nil and the error.
+// Errors from closing the iterator are not returned (ignored).
+func AsUsersSlice(it UserIterator) ([]*UserModel, error) {
+	defer it.Close()
+	res := make([]*UserModel, 0, 10)
+	for it.HasNext() {
+		next, nextErr := it.Next()
+		if nextErr != nil {
+			return nil, nextErr
+		}
+		res = append(res, next)
+	}
+	if err := it.Err(); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
 
 // UserStorage provides methods to store, retrieve, update and delete users from
 // a database.
@@ -187,6 +214,14 @@ type UserStorage interface {
   // ListUsers returns all users in the storage.
   // At the moment no functionality to sort / filter the users exists, thus this must be done
   // after retrieving them.
+  //
+  // The iterator must be called in the following way (very similar to sql.Rows):
+  // If the iterator is retrieved without an error the Close() method of the iterator must be called
+  // (usually as a deferred function call).
+  // Before accessing any of the elements with Next(), HasNext() must be called.
+  // Finally, a call to Err must be made in order to test if the iteration ended or if there was an
+  // error.
+  // See the AsUserSlice function for an example.
   ListUsers() (UserIterator, error)
 }
 
