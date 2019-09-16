@@ -132,6 +132,15 @@ func (e NoSuchSession) Error() string {
 	return string(e)
 }
 
+type UserIterator interface {
+	HasNext() bool
+	Next() (*UserModel, error)
+	Err() error
+	Close() error
+}
+
+// TODO add iterator method
+
 // UserStorage provides methods to store, retrieve, update and delete users from
 // a database.
 // MemdummyUserStorage provides a reference implementation but should never be used in any real code.
@@ -175,13 +184,17 @@ type UserStorage interface {
   // DeleteUser deletes the given user.
   // If no such user exists this will not be considered an error.
   DeleteUser(id UserID) error
+  // ListUsers returns all users in the storage.
+  // At the moment no functionality to sort / filter the users exists, thus this must be done
+  // after retrieving them.
+  ListUsers() (UserIterator, error)
 }
 
 // SessionStorage provides methods that are used to store and deal with auth session.
 //
 // In general if a user gets deleted all the users' sessions should be deleted as well.
 // Since we have to different interfaces there is no direct way of adapting this.
-// However both storages interfaces are usually combined in a GoauthStorage,
+// However both storages interfaces are usually combined in a Storage,
 // this way you might be able to adept to this.
 // But it shouldn't be a big problem if a session for a non-existent user remains
 // in the store.
@@ -272,8 +285,8 @@ func RetrySessionInsert(storage SessionStorage, session *SessionEntry, numTries 
 	return NewRetryInsertErr(errs)
 }
 
-// GoauthStorage combines a user storage and a session storage.
-type GoauthStorage interface {
+// Storage combines a user storage and a session storage.
+type Storage interface {
 	UserStorage
 	SessionStorage
 }

@@ -15,12 +15,12 @@
 package testsuite
 
 import (
-	"github.com/FabianWe/gopherbouncedb"
-	"testing"
-	"strings"
-	"time"
-	"log"
 	"fmt"
+	"github.com/FabianWe/gopherbouncedb"
+	"log"
+	"strings"
+	"testing"
+	"time"
 )
 
 type SessionTestSuiteBinding interface {

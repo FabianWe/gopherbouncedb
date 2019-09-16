@@ -16,9 +16,9 @@ package gopherbouncedb
 
 import (
 	"crypto/rand"
-	"time"
-	"io"
 	"encoding/base64"
+	"io"
+	"time"
 )
 
 const (

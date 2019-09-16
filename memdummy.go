@@ -15,8 +15,8 @@
 package gopherbouncedb
 
 import (
-	"sync"
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -149,6 +149,52 @@ func (s *MemdummyUserStorage) DeleteUser(id UserID) error {
 	delete(s.mailMapping, existing.EMail)
 	delete(s.idMapping, id)
 	return nil
+}
+
+type memUserIterator struct {
+	// not very efficient, better ways are possible: just store all users in a slice
+	items []*UserModel
+	pos int
+}
+
+func (it *memUserIterator) HasNext() bool {
+	return it.pos < len(it.items)
+}
+
+func (it *memUserIterator) Next() (*UserModel, error) {
+	if !it.HasNext() {
+		return nil, nil
+	}
+	res := it.items[it.pos]
+	it.pos++
+	return res, nil
+}
+
+func (it *memUserIterator) Err() error {
+	return nil
+}
+
+func (it *memUserIterator) Close() error {
+	return nil
+}
+
+func newMemUserIterator(s *MemdummyUserStorage) *memUserIterator {
+	items := make([]*UserModel, len(s.idMapping))
+	i := 0
+	for _, u := range s.idMapping {
+		items[i] = u.Copy()
+		i++
+	}
+	return &memUserIterator{
+		items: items,
+		pos:   0,
+	}
+}
+
+func (s *MemdummyUserStorage) ListUsers() (UserIterator, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return newMemUserIterator(s), nil
 }
 
 type MemdummySessionStorage struct {

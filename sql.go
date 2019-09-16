@@ -334,6 +334,8 @@ type UserSQL interface {
 	// DeleteUser removes a user from the database.
 	// It is given a single argument, the user id.
 	DeleteUser() string
+	// ListUsers returns all users with a SELECT statement.
+	ListUsers() string
 }
 
 // SQLUserStorage implements UserStorage by working with database/sql.
@@ -555,6 +557,76 @@ func (s *SQLUserStorage) UpdateUser(id UserID, newCredentials *UserModel, fields
 func (s *SQLUserStorage) DeleteUser(id UserID) error {
 	_, err := s.UserDB.Exec(s.UserQueries.DeleteUser(), id)
 	return err
+}
+
+func (s *SQLUserStorage) ListUsers() (UserIterator, error) {
+	rows, rowsErr := s.UserDB.Query(s.UserQueries.ListUsers())
+	if rowsErr != nil {
+		return nil, rowsErr
+	}
+	return NewSQLUserIterator(rows, s.UserBridge), nil
+}
+
+type SQLUserIterator struct {
+	Rows *sql.Rows
+	Bridge SQLBridge
+}
+
+func NewSQLUserIterator(rows *sql.Rows, bridge SQLBridge) *SQLUserIterator {
+	return &SQLUserIterator{
+		Rows:   rows,
+		Bridge: bridge,
+	}
+}
+
+func (it *SQLUserIterator) HasNext() bool {
+	return it.Rows.Next()
+}
+
+func (it *SQLUserIterator) Err() error {
+	return it.Rows.Err()
+}
+
+func (it *SQLUserIterator) Close() error {
+	return it.Close()
+}
+
+func (it *SQLUserIterator) Next() (*UserModel, error) {
+	// a bit code duplication, but well
+	var userId UserID
+	var username, password, email, firstName, lastName string
+	var isSuperuser, isStaff, isActive bool
+	var dateJoined, lastLogin interface{}
+	dateJoined, lastLogin = it.Bridge.TimeScanType(), it.Bridge.TimeScanType()
+	scanErr := it.Rows.Scan(&userId, &username, &password, &email,
+		&firstName, &lastName, &isSuperuser, &isStaff,
+		&isActive, dateJoined, lastLogin)
+	if scanErr != nil {
+		return nil, scanErr
+	}
+	var user UserModel
+	user.ID = userId
+	user.FirstName = firstName
+	user.LastName = lastName
+	user.Username = username
+	user.EMail = email
+	user.Password = password
+	user.IsActive = isActive
+	user.IsSuperUser = isSuperuser
+	user.IsStaff = isStaff
+	if dj, djErr := it.Bridge.ConvertTimeScanType(dateJoined); djErr != nil {
+		return nil, djErr
+	} else {
+		dj = dj.UTC()
+		user.DateJoined = dj
+	}
+	if ll, llErr := it.Bridge.ConvertTimeScanType(lastLogin); llErr != nil {
+		return nil, llErr
+	} else {
+		ll = ll.UTC()
+		user.LastLogin = ll
+	}
+	return &user, nil
 }
 
 type SessionSQL interface {
